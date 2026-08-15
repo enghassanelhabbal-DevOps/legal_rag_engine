@@ -69,14 +69,36 @@ class QwenTransformersBackend:
     # ------------------------------------------------------------------
     @staticmethod
     def _gpu_info() -> tuple[bool, str | None, tuple[int, int] | None, int | None]:
-        if not torch.cuda.is_available():
-            return False, None, None, None
+        """Return (available, name, (major,minor), total_memory_bytes).
 
-        name = torch.cuda.get_device_name(0)
-        capability = torch.cuda.get_device_capability(0)
-        props = torch.cuda.get_device_properties(0)
-        vram = int(props.total_memory)
-        return True, name, capability, vram
+        Be defensive: handle cases where CUDA is not available or device ids are invalid
+        (e.g., CUDA_VISIBLE_DEVICES is empty) and avoid raising AssertionError.
+        """
+        try:
+            if not torch.cuda.is_available():
+                return False, None, None, None
+            # Ensure at least one device is visible
+            if torch.cuda.device_count() == 0:
+                return False, None, None, None
+            dev = 0
+            try:
+                props = torch.cuda.get_device_properties(dev)
+                name = props.name
+                capability = torch.cuda.get_device_capability(dev)
+                vram = int(props.total_memory)
+                return True, name, capability, vram
+            except Exception:
+                # Best-effort fallback to other getters; if any call fails, treat GPU as unavailable
+                try:
+                    name = torch.cuda.get_device_name(dev)
+                    capability = torch.cuda.get_device_capability(dev)
+                    props = torch.cuda.get_device_properties(dev)
+                    vram = int(props.total_memory)
+                    return True, name, capability, vram
+                except Exception:
+                    return False, None, None, None
+        except Exception:
+            return False, None, None, None
 
     def _select_model(self) -> str:
         available, name, capability, vram = self._gpu_info()
