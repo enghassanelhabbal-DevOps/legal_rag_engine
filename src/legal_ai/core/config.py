@@ -93,8 +93,8 @@ class Config:
     llm_backend: str = "qwen_transformers"
 
     # Artifacts / paths
-    faiss_index_path: str = "artifacts/indexes/faiss.index"
-    embeddings_cache_path: str = "artifacts/embeddings/embeddings.json"
+    faiss_index_path: str = "artifacts/indexes/dense_faiss.index"
+    embeddings_cache_path: str = "artifacts/embeddings/embeddings_cache.json"
     data_raw_dir: str = "data/raw"
     data_normalized_dir: str = "data/normalized"
 

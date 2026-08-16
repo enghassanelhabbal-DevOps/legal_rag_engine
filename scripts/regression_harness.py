@@ -34,10 +34,10 @@ def run():
         "dense_indices": indices.tolist(),
         "dense_scores": scores.tolist(),
     }
-    out = Path("artifacts")
+    out = Path("artifacts") / "reports"
     out.mkdir(parents=True, exist_ok=True)
     (out / "regression_baseline.json").write_text(json.dumps(baseline, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("Saved regression baseline to artifacts/regression_baseline.json")
+    print("Saved regression baseline to artifacts/reports/regression_baseline.json")
 
 
 if __name__ == '__main__':

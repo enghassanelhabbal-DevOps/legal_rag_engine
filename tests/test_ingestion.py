@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import unittest
-from legal_ai.ingestion import article_aware_chunk, chunk_document
+from src.legal_ai.ingestion import article_aware_chunk, chunk_document
 
 
 class TestIngestionChunking(unittest.TestCase):
@@ -21,9 +21,9 @@ class TestIngestionChunking(unittest.TestCase):
             self.assertEqual(c["article_id"], "10")
 
     def test_chunk_document_provenance(self):
-        doc = {"id": "doc1", "content": "المادة 1 نص.", "metadata": {"title": "قانون"}}
+        doc = {"document_id": "doc1", "raw_text": "المادة 1 نص.", "metadata": {"title": "قانون"}}
         out = chunk_document(doc, max_chars=1000)
-        self.assertEqual(out[0]["doc_id"], "doc1")
+        self.assertEqual(out[0]["document_id"], "doc1")
         self.assertEqual(out[0]["article_id"], "1")
 
 

@@ -62,23 +62,26 @@ def list_versions(dir_path: Path) -> list[Path]:
 def rollback_to(version_path: Path, artifacts_dir: Path) -> None:
     """Attempt a conservative rollback using a saved KnowledgeVersion manifest.
 
-    Only copies known artifact files that physically exist next to the manifest.
-    No destructive operations are performed automatically.
+    Reads artifact files from the canonical ARCHITECTURE_CONTRACT subdirectories
+    (embeddings/, indexes/) and copies them into the matching subdirs under
+    artifacts_dir. No destructive operations are performed automatically.
     """
     version = KnowledgeVersion.load(version_path)
     src_dir = version_path.parent
-    candidates = {
-        "embeddings": src_dir / "dense_embeddings.npy",
-        "index": src_dir / "dense_faiss.index",
+    candidates: dict[str, Path] = {
+        "embeddings": src_dir / "embeddings" / "dense_embeddings.npy",
+        "index": src_dir / "indexes" / "dense_faiss.index",
         "emb_cache": (
             Path(version.embedding_cache_path)
             if version.embedding_cache_path
-            else src_dir / "embeddings_cache.json"
+            else src_dir / "embeddings" / "embeddings_cache.json"
         ),
     }
-    for _name, src in candidates.items():
+    for name, src in candidates.items():
         if src and src.exists():
-            dst = Path(artifacts_dir) / src.name
+            # Mirror the source subdir structure under artifacts_dir
+            dst = Path(artifacts_dir) / src.relative_to(src_dir)
+            dst.parent.mkdir(parents=True, exist_ok=True)
             dst.write_bytes(src.read_bytes())
 
 

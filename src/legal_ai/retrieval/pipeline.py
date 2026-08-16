@@ -89,11 +89,20 @@ def build_index(
     batch_size: int,
     out_dir: Path,
 ) -> DenseIndex:
-    """Build or load the FAISS index, using the embedding cache for speed."""
-    out_dir.mkdir(parents=True, exist_ok=True)
-    embeddings_path = out_dir / "dense_embeddings.npy"
-    index_path = out_dir / "dense_faiss.index"
-    cache_path = out_dir / "embeddings_cache.json"
+    """Build or load the FAISS index, using the embedding cache for speed.
+
+    Writes into the canonical ARCHITECTURE_CONTRACT subdirectories:
+      <out_dir>/embeddings/  — dense_embeddings.npy, embeddings_cache.json
+      <out_dir>/indexes/     — dense_faiss.index
+    """
+    embeddings_dir = out_dir / "embeddings"
+    indexes_dir = out_dir / "indexes"
+    embeddings_dir.mkdir(parents=True, exist_ok=True)
+    indexes_dir.mkdir(parents=True, exist_ok=True)
+
+    embeddings_path = embeddings_dir / "dense_embeddings.npy"
+    index_path = indexes_dir / "dense_faiss.index"
+    cache_path = embeddings_dir / "embeddings_cache.json"
     cache = EmbeddingCache(cache_path)
 
     if embeddings_path.exists() and index_path.exists():
@@ -146,8 +155,17 @@ def prepare_pipeline(
     out_dir: Path,
     load_reranker: bool = True,
 ) -> tuple[HybridRetriever, dict[str, Any]]:
-    """Assemble and return (HybridRetriever, runtime_info_dict)."""
-    out_dir.mkdir(parents=True, exist_ok=True)
+    """Assemble and return (HybridRetriever, runtime_info_dict).
+
+    Artifact layout (ARCHITECTURE_CONTRACT):
+      <out_dir>/embeddings/  — dense_embeddings.npy, embeddings_cache.json
+      <out_dir>/indexes/     — dense_faiss.index
+      <out_dir>/reports/     — runtime_info.json
+      <out_dir>/             — knowledge_version.json  (root, for version discovery)
+    """
+    reports_dir = out_dir / "reports"
+    reports_dir.mkdir(parents=True, exist_ok=True)
+
     device = configure_runtime(runtime)
     dtype = choose_dtype(runtime, device)
     LOGGER.info("Inference dtype: %s", dtype)
@@ -174,9 +192,9 @@ def prepare_pipeline(
         "torch": torch.__version__,
         "faiss": getattr(__import__("faiss"), "__version__", "unknown"),
     }
-    _save_json(info, out_dir / "runtime_info.json")
+    _save_json(info, reports_dir / "runtime_info.json")
 
-    # Save knowledge version manifest
+    # Save knowledge version manifest in root of out_dir for easy discovery
     try:
         h = hashlib.sha256()
         for d in documents:

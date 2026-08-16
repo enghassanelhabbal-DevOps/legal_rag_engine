@@ -145,43 +145,53 @@ class QwenTransformersBackend:
         # at Maxwell.
         available, _, _, _ = self._gpu_info()
         if available and model_id == self.config.fallback_model_id:
-            from accelerate import infer_auto_device_map, init_empty_weights
+            try:
+                # Test if PyTorch can actually execute a simple kernel on the GPU
+                torch.zeros(1).cuda()
+                gpu_works = True
+            except Exception:
+                gpu_works = False
 
-            # First create an empty model to estimate a device map without
-            # allocating the full 4B model twice.
-            with init_empty_weights():
-                empty_model = AutoModelForCausalLM.from_config(
-                    self._load_config(model_id),
-                    torch_dtype=torch.float16,
+            if gpu_works:
+                from accelerate import infer_auto_device_map, init_empty_weights
+
+                with init_empty_weights():
+                    empty_model = AutoModelForCausalLM.from_config(
+                        self._load_config(model_id),
+                        torch_dtype=torch.float16,
+                    )
+
+                max_memory = {
+                    0: self.config.m2200_gpu_memory,
+                    "cpu": self.config.cpu_memory_budget,
+                }
+                device_map = infer_auto_device_map(
+                    empty_model,
+                    max_memory=max_memory,
+                    no_split_module_classes=[
+                        "Qwen2DecoderLayer",
+                        "Qwen2Block",
+                    ],
                 )
-
-            max_memory = {
-                0: self.config.m2200_gpu_memory,
-                "cpu": self.config.cpu_memory_budget,
-            }
-            device_map = infer_auto_device_map(
-                empty_model,
-                max_memory=max_memory,
-                no_split_module_classes=[
-                    "Qwen3DecoderLayer",
-                    "Qwen3Block",
-                ],
-            )
-            del empty_model
-            gc.collect()
-            torch.cuda.empty_cache()
+                del empty_model
+                gc.collect()
+                torch.cuda.empty_cache()
+            else:
+                LOGGER.warning("PyTorch cannot execute on this GPU. Forcing pure CPU device_map.")
+                device_map = "cpu"
+                max_memory = None
 
             self.model = AutoModelForCausalLM.from_pretrained(
                 model_id,
-                torch_dtype=torch.float16,
+                torch_dtype=torch.float16 if gpu_works else torch.bfloat16,
                 device_map=device_map,
                 max_memory=max_memory,
-                offload_folder=self.config.offload_folder,
-                offload_state_dict=True,
+                offload_folder=self.config.offload_folder if gpu_works else None,
+                offload_state_dict=True if gpu_works else False,
                 low_cpu_mem_usage=True,
                 trust_remote_code=self.config.trust_remote_code,
             )
-            self.device_map = dict(device_map)
+            self.device_map = dict(device_map) if isinstance(device_map, dict) else {"": "cpu"}
         else:
             # Capable GPU path: use the exact requested FP8 checkpoint and let
             # Transformers determine the device placement.

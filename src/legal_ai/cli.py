@@ -1,7 +1,12 @@
 import argparse
 import json
 import logging
+import sys
 from pathlib import Path
+
+# Force UTF-8 for Windows console
+if sys.stdout.encoding.lower() != 'utf-8':
+    sys.stdout.reconfigure(encoding='utf-8')  # type: ignore[attr-defined]
 
 from src.legal_ai.core.config import set_seed
 from src.legal_ai.core.models import PipelineConfig, RuntimeConfig
@@ -27,6 +32,7 @@ def main() -> None:
     parser.add_argument("--max-seq-length", type=int, default=1024)
     parser.add_argument("--compile-reranker", action="store_true")
     parser.add_argument("--no-reranker", action="store_true")
+    parser.add_argument("--generate", action="store_true", help="Run full RAG pipeline including LLM generation")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -64,9 +70,15 @@ def main() -> None:
         llm_config=None
     )
 
-    # For pure retrieval backwards compatibility with old script
-    result = query_service.retrieve(args.query, top_k=args.top_k)
-    print(json.dumps(result, ensure_ascii=False, indent=2))
+    if args.generate:
+        print("\n=== Running Full RAG Pipeline (LLM Generation) ===")
+        answer = query_service.answer(args.query, top_k=args.top_k)
+        from dataclasses import asdict
+        print(json.dumps(asdict(answer), ensure_ascii=False, indent=2))
+    else:
+        # For pure retrieval backwards compatibility with old script
+        result = query_service.retrieve(args.query, top_k=args.top_k)
+        print(json.dumps(result, ensure_ascii=False, indent=2))
 
     query_service.close()
 
