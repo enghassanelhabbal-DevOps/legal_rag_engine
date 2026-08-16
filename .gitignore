@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# DVC / datasets / models
+.dvc/cache/
+.dvc/tmp/
+.dvc/config.local
+.cache/
+artifacts/**
+!artifacts/reports/
+!artifacts/reports/.gitkeep
+
+data/**
+!data/.gitkeep
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+
+# Build / logs
+*.log
+*.sqlite3
+build/
+dist/
+
+# Local runtime
+*.json.tmp

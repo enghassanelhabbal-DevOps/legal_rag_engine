@@ -1,0 +1,6 @@
+[core]
+    remote = drive
+    analytics = false
+
+['remote "drive"']
+    url = ../legal-rag-remote

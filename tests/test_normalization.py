@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import unittest
-from legal_rag_engine import normalize_arabic
+
+from src.legal_ai.ingestion.normalization import normalize_arabic
 
 
 class TestArabicNormalization(unittest.TestCase):

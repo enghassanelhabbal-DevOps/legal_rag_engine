@@ -1,0 +1,16 @@
+stages:
+  regression_baseline:
+    cmd: python scripts/regression_harness.py
+    deps:
+      - scripts/regression_harness.py
+      - legal_documents.json
+    outs:
+      - artifacts/reports/regression_baseline.json
+
+  regression_gate:
+    cmd: python scripts/quality_gate.py
+    deps:
+      - scripts/quality_gate.py
+      - artifacts/reports/regression_baseline.json
+      - src/legal_ai/evaluation/baseline.py
+    always_changed: true

@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import platform
 import sys
-import torch
+
 import faiss
+import torch
 
 print("OS:", platform.platform())
 print("Python:", sys.version.split()[0])
