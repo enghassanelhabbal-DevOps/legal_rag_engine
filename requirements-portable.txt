@@ -1,6 +1,0 @@
-numpy>=2.0,<3
-torch>=2.5,<3
-sentence-transformers>=5.0,<6
-faiss-cpu>=1.8,<2
-transformers>=4.50,<5
-safetensors>=0.5,<1
