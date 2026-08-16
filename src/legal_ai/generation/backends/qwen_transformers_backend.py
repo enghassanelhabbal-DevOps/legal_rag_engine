@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 """Qwen3 Transformers backend tuned for a 4 GB Quadro M2200.
 
 Important design choice:
@@ -11,6 +9,8 @@ Important design choice:
 The code uses tokenizer.apply_chat_template(..., return_dict=True) exactly so
 that the result can be passed to model.generate(**inputs).
 """
+
+from __future__ import annotations
 
 import gc
 import logging
@@ -56,7 +56,7 @@ class QwenConfig:
 
 
 class QwenTransformersBackend:
-    def __init__(self, config: QwenConfig | None = None):
+    def __init__(self, config: QwenConfig | None = None) -> None:
         self.config = config or QwenConfig()
         self.tokenizer = None
         self.model = None
@@ -218,7 +218,7 @@ class QwenTransformersBackend:
         if getattr(self.model, "hf_device_map", None):
             LOGGER.info("hf_device_map=%s", self.model.hf_device_map)
 
-    def _load_config(self, model_id: str):
+    def _load_config(self, model_id: str) -> Any:
         from transformers import AutoConfig
 
         return AutoConfig.from_pretrained(
@@ -255,12 +255,12 @@ class QwenTransformersBackend:
 قواعد إلزامية:
 1. استخدم فقط المعلومات الموجودة في السياق القانوني المرفق.
 2. لا تخترع مادة أو رقم مادة أو عقوبة أو استثناء غير موجود في السياق.
-3. إذا لم يكن السياق كافيًا للإجابة، قل بوضوح: «لا يحتوي السياق المسترجع على معلومات كافية للإجابة بشكل موثوق».
+3. إذا لم يكن السياق كافيًا للإجابة، قل بوضوح: «لا يحتوي السياق المسترجع على معلومات كافية للإجابة بشكل موثوق».  # noqa: E501
 4. عند ذكر قاعدة قانونية، اذكر اسم القانون ورقم المادة من المصدر متى كانا متاحين.
 5. فرّق بين «النص القانوني» و«الشرح».
 6. لا تقدم استنتاجًا قانونيًا غير مدعوم بالنص المسترجع.
 7. اجعل الإجابة مباشرة ومركزة، ولا تكرر النصوص الطويلة دون حاجة.
-8. لا تعرض سلسلة التفكير الداخلية أو خطوات التفكير الخاصة بالنموذج. أعرض النتيجة القانونية الموجزة فقط.
+8. لا تعرض سلسلة التفكير الداخلية أو خطوات التفكير الخاصة بالنموذج. أعرض النتيجة القانونية الموجزة فقط.  # noqa: E501
 """.strip()
 
         user = f"""
@@ -282,7 +282,7 @@ class QwenTransformersBackend:
     def _strip_thinking(text: str) -> str:
         # Do not expose hidden chain-of-thought in the application output.
         text = re.sub(r"<think>.*?</think>", "", text, flags=re.DOTALL | re.IGNORECASE)
-        text = re.sub(r"<\|thinking\|>.*?<\|/thinking\|>", "", text, flags=re.DOTALL | re.IGNORECASE)
+        text = re.sub(r"<\|thinking\|>.*?<\|/thinking\|>", "", text, flags=re.DOTALL | re.IGNORECASE)  # noqa: E501
         return text.strip()
 
     def generate(self, query: str, context: str) -> str:
