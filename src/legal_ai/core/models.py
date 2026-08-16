@@ -59,10 +59,11 @@ class PipelineConfig:
 class RetrievalHit:
     """Internal representation of a retrieval candidate (pre-contract conversion)."""
 
-    id: str
+    document_id: str
     index: int
-    content: str
-    metadata: dict[str, Any]
+    text: str
+    law_name: str
+    article_id: str
     dense_score: float | None = None
     bm25_score: float | None = None
     reranker_score: float | None = None

@@ -82,15 +82,15 @@ def article_aware_chunk(
 def chunk_document(
     doc: dict[str, Any], max_chars: int = DEFAULT_MAX_CHARS
 ) -> list[dict[str, Any]]:
-    """Create chunks for a document dict with keys 'id', 'content', 'metadata'.
+    """Create chunks for a document dict with keys 'document_id', 'raw_text', 'metadata'.
 
     Returns a list of chunk dicts with full provenance fields.
     """
-    content: str = doc.get("content", "") or ""
+    content: str = doc.get("raw_text", "") or ""
     chunks = article_aware_chunk(content, max_chars=max_chars)
     return [
         {
-            "doc_id": doc.get("id"),
+            "document_id": doc.get("document_id"),
             "article_id": c.get("article_id"),
             "chunk_index": c.get("chunk_index"),
             "chunk_count": c.get("chunk_count"),

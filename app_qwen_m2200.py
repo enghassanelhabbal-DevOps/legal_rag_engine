@@ -18,7 +18,7 @@ LOGGER = logging.getLogger("legal_rag_app")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Legal RAG + Qwen3 Transformers, tuned for Quadro M2200")
-    parser.add_argument("--documents", default="legal_documents (1).json")
+    parser.add_argument("--documents", default="legal_documents.json")
     parser.add_argument("--artifact-dir", default="artifacts_m2200")
     parser.add_argument("--query", required=True)
     parser.add_argument("--top-k", type=int, default=5)

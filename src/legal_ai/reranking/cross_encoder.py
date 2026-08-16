@@ -18,15 +18,6 @@ from src.legal_ai.core.models import RetrievalHit
 LOGGER = get_logger(__name__)
 
 
-def _build_rerank_text(doc: dict) -> str:
-    """Build the text representation sent to the reranker."""
-    metadata = doc.get("metadata") or {}
-    title = " ".join(str(metadata.get("title", "")).split())
-    content = " ".join(str(doc.get("content", "")).split())
-    if title:
-        return f"العنوان: {title}\nالنص القانوني: {content}"
-    return content
-
 
 class Reranker:
     """BGE cross-encoder reranker with batch inference.
@@ -71,7 +62,7 @@ class Reranker:
     ) -> np.ndarray:
         """Return a float32 array of shape (len(candidates),) with raw scores."""
         pairs = [
-            [query, _build_rerank_text({"content": c.content, "metadata": c.metadata})[:max_chars]]
+            [query, f"{c.law_name}: {c.text}"[:max_chars]]
             for c in candidates
         ]
         with torch.inference_mode():

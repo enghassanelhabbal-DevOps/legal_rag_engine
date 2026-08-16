@@ -23,20 +23,14 @@ LOGGER = get_logger(__name__)
 
 def _metadata_text(doc: dict) -> str:
     """Build the text representation used for dense retrieval and reranker input."""
-    metadata = doc.get("metadata") or {}
-    title = " ".join(str(metadata.get("title", "")).split())
-    content = " ".join(str(doc.get("content", "")).split())
-    if title:
-        return f"العنوان: {title}\nالنص القانوني: {content}"
-    return content
+    return str(doc.get("embedding_text", ""))
 
 
 def _lexical_text(doc: dict) -> str:
-    """Build the text used for BM25 indexing (title gets a small boost)."""
-    metadata = doc.get("metadata") or {}
-    title = " ".join(str(metadata.get("title", "")).split())
-    content = " ".join(str(doc.get("content", "")).split())
-    return f"{title} {title} {content}".strip()
+    """Build the text used for BM25 indexing (law name gets a small boost)."""
+    law_name = str(doc.get("law_name", "")).strip()
+    norm = str(doc.get("normalized_text", "")).strip()
+    return f"{law_name} {law_name} {norm}".strip()
 
 
 class HybridRetriever:
@@ -77,10 +71,11 @@ class HybridRetriever:
             d = self.documents[int(idx)]
             results.append(
                 RetrievalHit(
-                    id=str(d["id"]),
+                    document_id=str(d["document_id"]),
                     index=int(idx),
-                    content=d["content"],
-                    metadata=d.get("metadata", {}),
+                    text=d["raw_text"],
+                    law_name=d.get("law_name", ""),
+                    article_id=d.get("article_id", ""),
                     dense_score=float(score),
                 )
             )
@@ -93,10 +88,11 @@ class HybridRetriever:
             d = self.documents[idx]
             results.append(
                 RetrievalHit(
-                    id=str(d["id"]),
+                    document_id=str(d["document_id"]),
                     index=idx,
-                    content=d["content"],
-                    metadata=d.get("metadata", {}),
+                    text=d["raw_text"],
+                    law_name=d.get("law_name", ""),
+                    article_id=d.get("article_id", ""),
                     bm25_score=score,
                 )
             )
@@ -115,16 +111,16 @@ class HybridRetriever:
         """Merge dense + BM25 results keeping dense ordering at the head."""
         merged: dict[str, RetrievalHit] = {}
         for hit in dense:
-            merged[hit.id] = RetrievalHit(**{**asdict(hit)})
+            merged[hit.document_id] = RetrievalHit(**{**asdict(hit)})
         for hit in bm25:
-            if hit.id in merged:
-                merged[hit.id].bm25_score = hit.bm25_score
+            if hit.document_id in merged:
+                merged[hit.document_id].bm25_score = hit.bm25_score
             else:
-                merged[hit.id] = RetrievalHit(**{**asdict(hit)})
+                merged[hit.document_id] = RetrievalHit(**{**asdict(hit)})
 
-        ordered = [merged[x.id] for x in dense]
-        dense_ids = {d.id for d in dense}
-        ordered += [merged[x.id] for x in bm25 if x.id not in dense_ids]
+        ordered = [merged[x.document_id] for x in dense]
+        dense_ids = {d.document_id for d in dense}
+        ordered += [merged[x.document_id] for x in bm25 if x.document_id not in dense_ids]
         return ordered[:max_candidates]
 
     # ------------------------------------------------------------------
@@ -155,7 +151,7 @@ class HybridRetriever:
             final = alpha * dense_prior + (1.0 - alpha) * float(rr[i])
             # store final_score back on the hit (duck-typed extra field)
             object.__setattr__(hit, "final_score", final) if False else setattr(hit, "final_score", final)  # noqa
-        hits.sort(key=lambda x: (-float(getattr(x, "final_score", 0.0)), x.id))
+        hits.sort(key=lambda x: (-float(getattr(x, "final_score", 0.0)), x.document_id))
         return hits
 
     # ------------------------------------------------------------------

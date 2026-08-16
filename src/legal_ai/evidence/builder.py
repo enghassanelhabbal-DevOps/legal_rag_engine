@@ -29,14 +29,14 @@ def build_grounded_context(
     blocks: list[str] = []
     current = 0
     for i, item in enumerate(results, start=1):
-        metadata = item.get("metadata") or {}
-        title = " ".join(str(metadata.get("title", "")).split()) or "مصدر قانوني"
-        content = " ".join(str(item.get("content", "")).split())
+        title = " ".join(str(item.get("law_name", "")).split()) or "مصدر قانوني"
+        content = " ".join(str(item.get("text", "")).split())
+        article_id = item.get("article_id", "")
         block = (
             f"[SOURCE {i}]\n"
-            f"العنوان: {title}\n"
+            f"العنوان: {title} - المادة {article_id}\n"
             f"النص: {content}\n"
-            f"معرّف المصدر: {item.get('id')}"
+            f"معرّف المصدر: {item.get('document_id')}"
         )
         if current + len(block) > max_chars:
             break
@@ -61,7 +61,7 @@ def select_evidence(
         score = item.get("reranker_score") or item.get("dense_score") or 0.0
         if float(score) < min_score:
             continue
-        content = str(item.get("content", ""))
+        content = str(item.get("text", ""))
         if current + len(content) > max_chars:
             break
         selected.append(item)
