@@ -653,7 +653,7 @@ def prepare_pipeline(
             dataset_hash=dataset_hash,
             document_count=len(documents),
             embedding_model=DENSE_MODEL_NAME,
-            index_version="faiss-flat-ip",
+            index_type="faiss-flat-ip",
         )
         kv.save(out_dir / "knowledge_version.json")
     except Exception as exc:
