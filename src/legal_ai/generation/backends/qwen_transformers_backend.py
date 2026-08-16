@@ -146,8 +146,8 @@ class QwenTransformersBackend:
         available, _, _, _ = self._gpu_info()
         if available and model_id == self.config.fallback_model_id:
             try:
-                # Test if PyTorch can actually execute a simple kernel on the GPU
-                torch.zeros(1).cuda()
+                # Test if PyTorch can actually execute a math kernel on the GPU
+                _ = (torch.ones(1).cuda() * 2).cpu()
                 gpu_works = True
             except Exception:
                 gpu_works = False
