@@ -103,9 +103,14 @@ class QwenTransformersBackend:
     def _select_model(self) -> str:
         available, name, capability, vram = self._gpu_info()
 
+        # If no GPU is available or visible, always use the safe fallback model
+        if not available:
+            LOGGER.info("GPU not available or not visible; using fallback model %s", self.config.fallback_model_id)
+            return self.config.fallback_model_id
+
         # The M2200 is Maxwell SM 5.2 and has 4 GB VRAM. Never attempt the
         # user-requested FP8 checkpoint on this device.
-        if available and capability is not None:
+        if capability is not None:
             major, minor = capability
             if (major, minor) <= (5, 2) or (vram is not None and vram < 8 * 1024**3):
                 LOGGER.warning(
@@ -144,7 +149,20 @@ class QwenTransformersBackend:
         # path portable and avoids depending on GPU kernels that are not aimed
         # at Maxwell.
         available, _, _, _ = self._gpu_info()
-        if available and model_id == self.config.fallback_model_id:
+        if not available:
+            LOGGER.warning(
+                "No visible CUDA device detected for %s; loading on CPU only.",
+                model_id,
+            )
+            self.model = AutoModelForCausalLM.from_pretrained(
+                model_id,
+                torch_dtype=torch.float32,
+                device_map={"": "cpu"},
+                low_cpu_mem_usage=True,
+                trust_remote_code=self.config.trust_remote_code,
+            )
+            self.device_map = {"": "cpu"}
+        elif model_id == self.config.fallback_model_id:
             from accelerate import infer_auto_device_map, init_empty_weights
 
             # First create an empty model to estimate a device map without

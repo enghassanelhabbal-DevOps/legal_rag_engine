@@ -609,19 +609,25 @@ def prepare_pipeline(
     pipeline_cfg: PipelineConfig,
     out_dir: Path,
     load_reranker: bool = True,
+    dense_model_name: str | None = None,
+    reranker_model_name: str | None = None,
 ) -> tuple[HybridRetriever, dict[str, Any]]:
     device = configure_runtime(runtime)
     dtype = choose_dtype(runtime, device)
     LOGGER.info("Inference dtype: %s", dtype)
 
-    encoder = DenseEncoder(DENSE_MODEL_NAME, device, dtype, runtime.max_seq_length)
+    # Allow overriding the default model names (useful for CPU/local runs with smaller models)
+    dense_model_name = dense_model_name or DENSE_MODEL_NAME
+    reranker_model_name = reranker_model_name or RERANKER_MODEL_NAME
+
+    encoder = DenseEncoder(dense_model_name, device, dtype, runtime.max_seq_length)
     bm25 = BM25([tokenize(lexical_text(d)) for d in documents])
     index = build_index(documents, encoder, bm25, runtime.dense_batch_size, out_dir)
 
     reranker = None
-    if load_reranker:
+    if load_reranker and reranker_model_name:
         reranker = Reranker(
-            RERANKER_MODEL_NAME,
+            reranker_model_name,
             device,
             dtype,
             runtime.max_seq_length,
@@ -652,7 +658,7 @@ def prepare_pipeline(
             version_id=f"v{int(time.time())}",
             dataset_hash=dataset_hash,
             document_count=len(documents),
-            embedding_model=DENSE_MODEL_NAME,
+            embedding_model=dense_model_name,
             index_type="faiss-flat-ip",
         )
         kv.save(out_dir / "knowledge_version.json")
@@ -681,6 +687,9 @@ def main() -> None:
     parser.add_argument("--max-seq-length", type=int, default=1024)
     parser.add_argument("--compile-reranker", action="store_true")
     parser.add_argument("--no-reranker", action="store_true")
+    # Optional: override model names (useful to pick smaller models for CPU/local runs)
+    parser.add_argument("--dense-model", default=None, help="Dense encoder model name (HuggingFace)")
+    parser.add_argument("--reranker-model", default=None, help="Reranker CrossEncoder model name (HuggingFace)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -710,12 +719,18 @@ def main() -> None:
         alpha=args.alpha,
     )
 
+    # Determine model names to use (allow overrides via CLI args)
+    dense_model_used = args.dense_model or DENSE_MODEL_NAME
+    reranker_model_used = None if args.no_reranker else (args.reranker_model or RERANKER_MODEL_NAME)
+
     retriever, runtime_info = prepare_pipeline(
         documents,
         runtime,
         pipeline_cfg,
         out_dir,
         load_reranker=not args.no_reranker,
+        dense_model_name=dense_model_used,
+        reranker_model_name=reranker_model_used,
     )
 
     save_json(
@@ -725,8 +740,8 @@ def main() -> None:
             "runtime": asdict(runtime),
             "pipeline": asdict(pipeline_cfg),
             "models": {
-                "dense": DENSE_MODEL_NAME,
-                "reranker": None if args.no_reranker else RERANKER_MODEL_NAME,
+                "dense": dense_model_used,
+                "reranker": reranker_model_used,
             },
             "runtime_info": runtime_info,
         },
