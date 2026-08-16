@@ -7,7 +7,6 @@ BM25 runs on CPU always — no GPU dependency (ARCHITECTURE_CONTRACT.md §Hardwa
 from __future__ import annotations
 
 import math
-from typing import List, Tuple
 
 import numpy as np
 
@@ -29,7 +28,7 @@ class BM25:
 
     def __init__(
         self,
-        corpus_tokens: List[List[str]],
+        corpus_tokens: list[list[str]],
         k1: float = 1.5,
         b: float = 0.75,
     ) -> None:
@@ -39,7 +38,7 @@ class BM25:
         self.doc_len = np.asarray([len(x) for x in corpus_tokens], dtype=np.float32)
         self.avgdl = float(np.mean(self.doc_len)) if self.corpus_size else 0.0
 
-        self.doc_freqs: List[dict] = []
+        self.doc_freqs: list[dict] = []
         df: dict = {}
         for tokens in corpus_tokens:
             freqs: dict = {}
@@ -54,7 +53,7 @@ class BM25:
             for term, freq in df.items()
         }
 
-    def top_n(self, query: str, n: int) -> List[Tuple[int, float]]:
+    def top_n(self, query: str, n: int) -> list[tuple[int, float]]:
         """Return top-n (doc_index, score) pairs sorted by descending score."""
         scores = np.zeros(self.corpus_size, dtype=np.float32)
         qtf: dict = {}

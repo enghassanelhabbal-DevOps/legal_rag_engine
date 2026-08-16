@@ -8,7 +8,6 @@ and the results reported before merging.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict
 
 
 @dataclass(frozen=True)
@@ -22,7 +21,7 @@ class RetrievalBaseline:
     recall_at_10: float
     description: str = ""
 
-    def as_dict(self) -> Dict[str, float]:
+    def as_dict(self) -> dict[str, float]:
         return {
             "MRR": self.mrr,
             "Recall@1": self.recall_at_1,
@@ -31,7 +30,7 @@ class RetrievalBaseline:
             "Recall@10": self.recall_at_10,
         }
 
-    def check(self, measured: "RetrievalBaseline", tol: float = 0.005) -> bool:
+    def check(self, measured: RetrievalBaseline, tol: float = 0.005) -> bool:
         """Return True if *measured* is within *tol* of this baseline on all metrics."""
         return all([
             measured.mrr >= self.mrr - tol,

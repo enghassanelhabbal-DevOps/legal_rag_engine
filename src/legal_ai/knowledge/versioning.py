@@ -7,9 +7,8 @@ from __future__ import annotations
 
 import json
 import time
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List, Optional
 
 
 @dataclass
@@ -24,10 +23,10 @@ class KnowledgeVersion:
     dataset_hash: str           # SHA-256 of the canonical documents JSON
     document_count: int
     embedding_model: str        # e.g. "BAAI/bge-m3"
-    embedding_model_hash: Optional[str] = None   # model weights hash
-    reranker_model: Optional[str] = None
+    embedding_model_hash: str | None = None   # model weights hash
+    reranker_model: str | None = None
     index_type: str = "faiss-flat-ip"
-    embedding_cache_path: Optional[str] = None
+    embedding_cache_path: str | None = None
     created_at: float = 0.0
 
     def __post_init__(self) -> None:
@@ -43,7 +42,7 @@ class KnowledgeVersion:
         )
 
     @staticmethod
-    def load(path: Path) -> "KnowledgeVersion":
+    def load(path: Path) -> KnowledgeVersion:
         data = json.loads(path.read_text(encoding="utf-8"))
         return KnowledgeVersion(**data)
 
@@ -52,7 +51,7 @@ class KnowledgeVersion:
 # Utility helpers
 # ---------------------------------------------------------------------------
 
-def list_versions(dir_path: Path) -> List[Path]:
+def list_versions(dir_path: Path) -> list[Path]:
     """Return all knowledge-version manifest files sorted by name."""
     dir_path = Path(dir_path)
     if not dir_path.exists():

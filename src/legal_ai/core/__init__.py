@@ -6,17 +6,22 @@ Public API:
   from src.legal_ai.core.config import load_config, load_runtime_config
 """
 
-from src.legal_ai.core.contracts import LegalDocument, RetrievalResult, Answer
-from src.legal_ai.core.models import (
-    RuntimeConfig,
-    PipelineConfig,
-    RetrievalHit,
-    LLMBackend,
-    RAGServiceProtocol,
-)
 from src.legal_ai.core.config import load_config, load_runtime_config
-from src.legal_ai.core.exceptions import LegalAIError, IngestionError, RetrievalError, GenerationError
+from src.legal_ai.core.contracts import Answer, LegalDocument, RetrievalResult
+from src.legal_ai.core.exceptions import (
+    GenerationError,
+    IngestionError,
+    LegalAIError,
+    RetrievalError,
+)
 from src.legal_ai.core.logging import get_logger
+from src.legal_ai.core.models import (
+    LLMBackend,
+    PipelineConfig,
+    RAGServiceProtocol,
+    RetrievalHit,
+    RuntimeConfig,
+)
 
 __all__ = [
     # Contracts (canonical dataclasses)

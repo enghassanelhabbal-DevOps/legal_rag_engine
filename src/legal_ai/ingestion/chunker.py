@@ -6,7 +6,7 @@ Migrated from legal_ai/ingestion.py.
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 # Pattern matches "مادة 5", "المادة رقم 12", etc.
 _ARTICLE_RE = re.compile(r"(مادة|المادة)\s*(?:رقم\s*)?(\d+)", flags=re.IGNORECASE)
@@ -17,7 +17,7 @@ DEFAULT_MAX_CHARS = 2_000
 
 def article_aware_chunk(
     text: str, max_chars: int = DEFAULT_MAX_CHARS
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Split a legislative text into article-aware chunks.
 
     Returns:
@@ -51,7 +51,7 @@ def article_aware_chunk(
         ]
 
     # Build article spans
-    spans: List[tuple[str, str]] = []
+    spans: list[tuple[str, str]] = []
     for i, m in enumerate(matches):
         article_num = m.group(2)
         start = m.start()
@@ -59,7 +59,7 @@ def article_aware_chunk(
         spans.append((article_num, text[start:end].strip()))
 
     # Chunk each article individually
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for article_id, body in spans:
         if len(body) <= max_chars:
             out.append(
@@ -80,8 +80,8 @@ def article_aware_chunk(
 
 
 def chunk_document(
-    doc: Dict[str, Any], max_chars: int = DEFAULT_MAX_CHARS
-) -> List[Dict[str, Any]]:
+    doc: dict[str, Any], max_chars: int = DEFAULT_MAX_CHARS
+) -> list[dict[str, Any]]:
     """Create chunks for a document dict with keys 'id', 'content', 'metadata'.
 
     Returns a list of chunk dicts with full provenance fields.

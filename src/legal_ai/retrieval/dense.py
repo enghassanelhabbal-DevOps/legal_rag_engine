@@ -8,9 +8,9 @@ GPU memory policy (ARCHITECTURE_CONTRACT.md §Hardware):
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from contextlib import nullcontext
 from pathlib import Path
-from typing import Sequence
 
 import faiss
 import numpy as np
@@ -102,7 +102,7 @@ class DenseIndex:
         faiss.write_index(self.index, str(path))
 
     @staticmethod
-    def load(path: Path) -> "DenseIndex":
+    def load(path: Path) -> DenseIndex:
         obj = object.__new__(DenseIndex)
         obj.index = faiss.read_index(str(path))
         return obj

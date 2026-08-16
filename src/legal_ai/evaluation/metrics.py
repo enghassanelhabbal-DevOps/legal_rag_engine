@@ -7,7 +7,7 @@ Any retrieval or reranker change must report before/after these metrics
 
 from __future__ import annotations
 
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
 
 
 def compute_mrr(
@@ -53,7 +53,7 @@ def compute_recall_at_k(
     return len(rel & top_k) / len(rel)
 
 
-def mean_mrr(results: List[dict]) -> float:
+def mean_mrr(results: list[dict]) -> float:
     """Compute MRR averaged over a list of query result dicts.
 
     Each dict should have keys:
@@ -67,7 +67,7 @@ def mean_mrr(results: List[dict]) -> float:
     ) / len(results)
 
 
-def mean_recall_at_k(results: List[dict], k: int) -> float:
+def mean_recall_at_k(results: list[dict], k: int) -> float:
     """Compute Recall@k averaged over a list of query result dicts."""
     if not results:
         return 0.0

@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import re
 import unicodedata
-from typing import List
 
 # Characters outside Arabic range + word chars are collapsed to a space
 _ARABIC_RE = re.compile(r"[^\w\u0600-\u06FF]+", flags=re.UNICODE)
@@ -37,7 +36,7 @@ def normalize_arabic(text: str) -> str:
     return " ".join(text.split())
 
 
-def tokenize(text: str) -> List[str]:
+def tokenize(text: str) -> list[str]:
     """Tokenize normalized Arabic text into whitespace-separated tokens."""
     return normalize_arabic(text).split()
 

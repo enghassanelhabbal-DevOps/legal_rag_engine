@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Dict, List, Optional
 
 
 class EmbeddingCacheJSON:
@@ -19,17 +18,17 @@ class EmbeddingCacheJSON:
 
     def __init__(self, path: Path) -> None:
         self.path = path
-        self._data: Dict[str, List[float]] = {}
+        self._data: dict[str, list[float]] = {}
         if path.exists():
             try:
                 self._data = json.loads(path.read_text(encoding="utf-8"))
             except Exception:
                 self._data = {}
 
-    def get(self, doc_hash: str) -> Optional[List[float]]:
+    def get(self, doc_hash: str) -> list[float] | None:
         return self._data.get(doc_hash)
 
-    def set(self, doc_hash: str, embedding: List[float]) -> None:
+    def set(self, doc_hash: str, embedding: list[float]) -> None:
         self._data[doc_hash] = embedding
 
     def persist(self) -> None:
@@ -54,14 +53,14 @@ class EmbeddingCacheLMDB:
         self.path = path
         self._env = lmdb.open(str(path), map_size=map_size, subdir=False, lock=True)
 
-    def get(self, doc_hash: str) -> Optional[List[float]]:
+    def get(self, doc_hash: str) -> list[float] | None:
         with self._env.begin() as txn:
             v = txn.get(doc_hash.encode("utf-8"))
             if v is None:
                 return None
             return json.loads(v.decode("utf-8"))
 
-    def set(self, doc_hash: str, embedding: List[float]) -> None:
+    def set(self, doc_hash: str, embedding: list[float]) -> None:
         with self._env.begin(write=True) as txn:
             txn.put(
                 doc_hash.encode("utf-8"),
@@ -93,10 +92,10 @@ class EmbeddingCache:
         except Exception:
             self._impl = EmbeddingCacheJSON(path)
 
-    def get(self, doc_hash: str) -> Optional[List[float]]:
+    def get(self, doc_hash: str) -> list[float] | None:
         return self._impl.get(doc_hash)
 
-    def set(self, doc_hash: str, embedding: List[float]) -> None:
+    def set(self, doc_hash: str, embedding: list[float]) -> None:
         self._impl.set(doc_hash, embedding)
 
     def persist(self) -> None:

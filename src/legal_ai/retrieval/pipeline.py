@@ -11,18 +11,18 @@ import json
 import platform
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 import numpy as np
 import torch
 
-from src.legal_ai.core.models import RuntimeConfig, PipelineConfig
 from src.legal_ai.core.logging import get_logger
-from src.legal_ai.knowledge import EmbeddingCache, KnowledgeVersion
+from src.legal_ai.core.models import PipelineConfig, RuntimeConfig
 from src.legal_ai.ingestion.normalization import tokenize
-from src.legal_ai.retrieval.dense import DenseEncoder, DenseIndex
+from src.legal_ai.knowledge import EmbeddingCache, KnowledgeVersion
 from src.legal_ai.retrieval.bm25 import BM25
-from src.legal_ai.retrieval.hybrid import HybridRetriever, _metadata_text, _lexical_text
+from src.legal_ai.retrieval.dense import DenseEncoder, DenseIndex
+from src.legal_ai.retrieval.hybrid import HybridRetriever, _lexical_text, _metadata_text
 
 LOGGER = get_logger(__name__)
 
@@ -83,7 +83,7 @@ def choose_dtype(cfg: RuntimeConfig, device: str) -> torch.dtype:
 # ---------------------------------------------------------------------------
 
 def build_index(
-    documents: List[Dict[str, Any]],
+    documents: list[dict[str, Any]],
     encoder: DenseEncoder,
     bm25: BM25,
     batch_size: int,
@@ -108,9 +108,9 @@ def build_index(
     doc_hashes = [hashlib.sha256(t.encode("utf-8")).hexdigest() for t in texts]
 
     # Pre-fill from cache
-    embeddings_list: List[Optional[np.ndarray]] = [None] * len(documents)
-    to_encode_indices: List[int] = []
-    to_encode_texts: List[str] = []
+    embeddings_list: list[np.ndarray | None] = [None] * len(documents)
+    to_encode_indices: list[int] = []
+    to_encode_texts: list[str] = []
     for i, h in enumerate(doc_hashes):
         cached = cache.get(h)
         if cached is not None:
@@ -140,12 +140,12 @@ def build_index(
 # ---------------------------------------------------------------------------
 
 def prepare_pipeline(
-    documents: List[Dict[str, Any]],
+    documents: list[dict[str, Any]],
     runtime: RuntimeConfig,
     pipeline_cfg: PipelineConfig,
     out_dir: Path,
     load_reranker: bool = True,
-) -> Tuple[HybridRetriever, Dict[str, Any]]:
+) -> tuple[HybridRetriever, dict[str, Any]]:
     """Assemble and return (HybridRetriever, runtime_info_dict)."""
     out_dir.mkdir(parents=True, exist_ok=True)
     device = configure_runtime(runtime)
@@ -164,7 +164,7 @@ def prepare_pipeline(
 
     retriever = HybridRetriever(documents, encoder, index, bm25, reranker, pipeline_cfg)
 
-    info: Dict[str, Any] = {
+    info: dict[str, Any] = {
         "device": device,
         "dtype": str(dtype),
         "gpu_name": torch.cuda.get_device_name(runtime.gpu_id) if device.startswith("cuda") else None,

@@ -8,16 +8,15 @@ Provides:
 from __future__ import annotations
 
 import hashlib
-import json
-from typing import Any, Dict, List
+from typing import Any
 
 from src.legal_ai.core.exceptions import IngestionError
 
 # Required top-level keys for a canonical legal document dict
-_REQUIRED_KEYS: List[str] = ["id", "content"]
+_REQUIRED_KEYS: list[str] = ["id", "content"]
 
 
-def hash_document(doc: Dict[str, Any]) -> str:
+def hash_document(doc: dict[str, Any]) -> str:
     """Return a SHA-256 hex digest of the document's canonical content.
 
     The hash is computed over the JSON-serialised *content* field only so that
@@ -47,7 +46,7 @@ def validate_document(doc: Any) -> None:
         )
 
 
-def validate_documents(docs: List[Any]) -> None:
+def validate_documents(docs: list[Any]) -> None:
     """Validate a list of documents, raising IngestionError on the first failure."""
     if not isinstance(docs, list):
         raise IngestionError("'documents' must be a list")

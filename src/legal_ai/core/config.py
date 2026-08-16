@@ -11,18 +11,36 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any
 
 from src.legal_ai.core.models import RuntimeConfig
+
+
+def set_seed(seed: int = 42) -> None:
+    import random
+
+    import numpy as np
+    import torch
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+    torch.use_deterministic_algorithms(False)
+
+def load_json(path: Path) -> Any:
+    import json
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _parse_dotenv(path: Path) -> Dict[str, str]:
+def _parse_dotenv(path: Path) -> dict[str, str]:
     """Parse a .env file into a flat string dict (no shell expansion)."""
-    env: Dict[str, str] = {}
+    env: dict[str, str] = {}
     if not path.exists():
         return env
     for line in path.read_text(encoding="utf-8").splitlines():
@@ -36,7 +54,7 @@ def _parse_dotenv(path: Path) -> Dict[str, str]:
     return env
 
 
-def _load_yaml(path: Path) -> Dict[str, Any]:
+def _load_yaml(path: Path) -> dict[str, Any]:
     """Load a YAML config file.  Returns {} if PyYAML is not installed or file absent."""
     try:
         import yaml  # type: ignore
@@ -97,14 +115,14 @@ class Config:
 # ---------------------------------------------------------------------------
 
 def load_config(
-    env_path: Optional[str] = None,
-    yaml_path: Optional[str] = None,
-) -> Dict[str, Any]:
+    env_path: str | None = None,
+    yaml_path: str | None = None,
+) -> dict[str, Any]:
     """Load configuration from YAML, then .env file, then os.environ.
 
     Precedence (highest → lowest): os.environ > .env > yaml > defaults.
     """
-    cfg: Dict[str, Any] = {}
+    cfg: dict[str, Any] = {}
     if yaml_path:
         cfg.update(_load_yaml(Path(yaml_path)))
     if env_path:
@@ -114,7 +132,7 @@ def load_config(
     return cfg
 
 
-def load_runtime_config(cfg_map: Optional[Dict[str, Any]] = None) -> RuntimeConfig:
+def load_runtime_config(cfg_map: dict[str, Any] | None = None) -> RuntimeConfig:
     """Build a RuntimeConfig from a loaded config map (or os.environ + .env)."""
     m = cfg_map or load_config(env_path=".env")
 
@@ -137,4 +155,4 @@ if __name__ == "__main__":
     print(json.dumps(load_config(env_path=".env"), ensure_ascii=False, indent=2))
 
 
-__all__ = ["Config", "load_config", "load_runtime_config"]
+__all__ = ["Config", "load_config", "load_runtime_config", "set_seed", "load_json"]

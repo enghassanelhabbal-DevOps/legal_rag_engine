@@ -6,8 +6,8 @@ Public API:
     from src.legal_ai.retrieval import build_index, prepare_pipeline
 """
 
-from src.legal_ai.retrieval.dense import DenseEncoder, DenseIndex
 from src.legal_ai.retrieval.bm25 import BM25
+from src.legal_ai.retrieval.dense import DenseEncoder, DenseIndex
 from src.legal_ai.retrieval.hybrid import HybridRetriever
 from src.legal_ai.retrieval.pipeline import build_index, prepare_pipeline
 

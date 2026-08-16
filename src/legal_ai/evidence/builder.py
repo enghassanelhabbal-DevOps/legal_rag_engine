@@ -6,13 +6,12 @@ Responsibility: turn ranked retrieval hits into a compact, cited LLM context.
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
-
-from src.legal_ai.core.contracts import RetrievalResult
+from collections.abc import Sequence
+from typing import Any
 
 
 def build_grounded_context(
-    results: Sequence[Dict[str, Any]],
+    results: Sequence[dict[str, Any]],
     max_chars: int = 14_000,
 ) -> str:
     """Build the grounded context string passed to the LLM.
@@ -27,7 +26,7 @@ def build_grounded_context(
     Returns:
         A formatted string with numbered [SOURCE N] blocks.
     """
-    blocks: List[str] = []
+    blocks: list[str] = []
     current = 0
     for i, item in enumerate(results, start=1):
         metadata = item.get("metadata") or {}
@@ -47,16 +46,16 @@ def build_grounded_context(
 
 
 def select_evidence(
-    results: Sequence[Dict[str, Any]],
+    results: Sequence[dict[str, Any]],
     max_chars: int = 14_000,
     min_score: float = 0.0,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Select and filter evidence items from retrieval results.
 
     Filters out items below *min_score* and respects *max_chars* budget.
     Returns a list of result dicts that will be used in context building.
     """
-    selected: List[Dict[str, Any]] = []
+    selected: list[dict[str, Any]] = []
     current = 0
     for item in results:
         score = item.get("reranker_score") or item.get("dense_score") or 0.0

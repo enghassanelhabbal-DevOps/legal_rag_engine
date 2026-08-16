@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from src.legal_ai.core.contracts import Answer
-from src.legal_ai.core.models import RuntimeConfig, PipelineConfig
 from src.legal_ai.core.logging import get_logger
-from src.legal_ai.ingestion.validation import validate_documents
-from src.legal_ai.retrieval import HybridRetriever, prepare_pipeline
+from src.legal_ai.core.models import PipelineConfig, RuntimeConfig
 from src.legal_ai.evidence import build_grounded_context, select_evidence, validate_citations
 from src.legal_ai.generation import LLMManager
+from src.legal_ai.ingestion.validation import validate_documents
+from src.legal_ai.retrieval import prepare_pipeline
 
 LOGGER = get_logger(__name__)
 
@@ -29,12 +29,12 @@ class QueryService:
 
     def __init__(
         self,
-        documents: List[Dict[str, Any]],
+        documents: list[dict[str, Any]],
         runtime: RuntimeConfig,
         pipeline_cfg: PipelineConfig,
         artifact_dir: Path,
         load_reranker: bool = True,
-        llm_config: Optional[Dict[str, Any]] = None,
+        llm_config: dict[str, Any] | None = None,
     ) -> None:
         validate_documents(documents)
         self.pipeline_cfg = pipeline_cfg
@@ -54,8 +54,8 @@ class QueryService:
         pipeline_cfg: PipelineConfig,
         artifact_dir: Path,
         load_reranker: bool = True,
-        llm_config: Optional[Dict[str, Any]] = None,
-    ) -> "QueryService":
+        llm_config: dict[str, Any] | None = None,
+    ) -> QueryService:
         import json
 
         with documents_path.open("r", encoding="utf-8") as f:
@@ -64,11 +64,11 @@ class QueryService:
 
     # ------------------------------------------------------------------
 
-    def retrieve(self, query: str, top_k: Optional[int] = None) -> Dict[str, Any]:
+    def retrieve(self, query: str, top_k: int | None = None) -> dict[str, Any]:
         """Run retrieval only (no LLM)."""
         return self.retriever.retrieve(query, top_k=top_k or self.pipeline_cfg.final_k)
 
-    def answer(self, query: str, top_k: Optional[int] = None) -> Answer:
+    def answer(self, query: str, top_k: int | None = None) -> Answer:
         """Full pipeline: retrieve → evidence → generate → validate."""
         t0 = time.perf_counter()
 
@@ -85,8 +85,8 @@ class QueryService:
         t2 = time.perf_counter()
 
         # Try to parse structured JSON from LLM response
-        citations: List[dict] = []
-        warnings: List[str] = []
+        citations: list[dict] = []
+        warnings: list[str] = []
         try:
             import json
             parsed = json.loads(raw_answer)
@@ -115,6 +115,7 @@ class QueryService:
     def close(self) -> None:
         """Release GPU memory explicitly."""
         import gc
+
         import torch
 
         self.llm.unload()

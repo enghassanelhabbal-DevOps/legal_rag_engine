@@ -7,7 +7,6 @@ All modules must import from here; do NOT redefine these elsewhere.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Optional
 
 
 @dataclass
@@ -22,8 +21,8 @@ class LegalDocument:
     raw_text: str              # original text before any normalization
     normalized_text: str       # after Arabic normalization (for BM25 / display)
     embedding_text: str        # text actually sent to the dense encoder
-    version_id: Optional[str] = None   # KnowledgeVersion identifier
-    source: Optional[str] = None       # file path or URL of the source document
+    version_id: str | None = None   # KnowledgeVersion identifier
+    source: str | None = None       # file path or URL of the source document
 
 
 @dataclass
@@ -35,8 +34,8 @@ class RetrievalResult:
     law_name: str
     article_id: str
     text: str                  # text snippet shown to the LLM and user
-    source: Optional[str] = None
-    version_id: Optional[str] = None
+    source: str | None = None
+    version_id: str | None = None
 
 
 @dataclass

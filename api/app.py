@@ -9,9 +9,11 @@ import os
 import time
 from starlette.responses import JSONResponse
 
-from legal_ai.service import RAGService
-from legal_ai.generation import LLMManager
-from legal_rag_engine import RuntimeConfig, PipelineConfig, load_json, set_seed
+from src.legal_ai.services.query_service import QueryService
+from src.legal_ai.generation.manager import LLMManager
+from src.legal_ai.core.models import RuntimeConfig, PipelineConfig
+from src.legal_ai.core.config import load_json, set_seed
+from src.legal_ai.evidence import build_grounded_context, select_evidence
 
 app = FastAPI(title="Legal RAG API", version="0.2")
 
@@ -71,9 +73,10 @@ async def query(req: QueryRequest, request: Request, x_api_key: str | None = Hea
         documents = load_json(docs_path)
         runtime = RuntimeConfig()
         pipeline_cfg = PipelineConfig()
-        rag = RAGService(documents, runtime, pipeline_cfg, Path("artifacts_api"), load_reranker=False)
+        rag = QueryService(documents, runtime, pipeline_cfg, Path("artifacts_api"), load_reranker=False)
         retrieval = rag.retrieve(req.query, top_k=req.top_k)
-        context = rag.build_context(retrieval["results"], max_chars=pipeline_cfg.max_context_chars)
+        evidence = select_evidence(retrieval["results"], max_chars=pipeline_cfg.max_context_chars)
+        context = build_grounded_context(evidence, max_chars=pipeline_cfg.max_context_chars)
 
         llm = LLMManager()
         llm.load()

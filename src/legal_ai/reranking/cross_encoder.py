@@ -6,14 +6,14 @@ ARCHITECTURE_CONTRACT.md §ML rules: reranking must use batch inference.
 
 from __future__ import annotations
 
-from typing import Any, List, Sequence
+from collections.abc import Sequence
 
 import numpy as np
 import torch
 from sentence_transformers import CrossEncoder
 
-from src.legal_ai.core.models import RetrievalHit
 from src.legal_ai.core.logging import get_logger
+from src.legal_ai.core.models import RetrievalHit
 
 LOGGER = get_logger(__name__)
 

@@ -7,9 +7,9 @@ PipelineConfig).  The 'Lite' suffix is dropped; these are now the canonical clas
 
 from __future__ import annotations
 
-from dataclasses import dataclass, asdict
-from typing import Any, Dict, Optional, Protocol, Sequence
-
+from collections.abc import Sequence
+from dataclasses import asdict, dataclass
+from typing import Any, Protocol
 
 # ---------------------------------------------------------------------------
 # Runtime configuration
@@ -62,12 +62,12 @@ class RetrievalHit:
     id: str
     index: int
     content: str
-    metadata: Dict[str, Any]
-    dense_score: Optional[float] = None
-    bm25_score: Optional[float] = None
-    reranker_score: Optional[float] = None
+    metadata: dict[str, Any]
+    dense_score: float | None = None
+    bm25_score: float | None = None
+    reranker_score: float | None = None
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -81,14 +81,14 @@ class LLMBackend(Protocol):
     def load(self) -> None: ...
     def unload(self) -> None: ...
     def generate(self, query: str, context: str) -> str: ...
-    def info(self) -> Dict[str, Any]: ...
+    def info(self) -> dict[str, Any]: ...
 
 
 class RAGServiceProtocol(Protocol):
     """Protocol for the high-level RAG service."""
 
-    def retrieve(self, query: str, top_k: int = 5) -> Dict[str, Any]: ...
-    def ingest(self, documents: Sequence[Dict[str, Any]]) -> None: ...
+    def retrieve(self, query: str, top_k: int = 5) -> dict[str, Any]: ...
+    def ingest(self, documents: Sequence[dict[str, Any]]) -> None: ...
     def index(self) -> None: ...
 
 

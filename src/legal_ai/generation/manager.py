@@ -7,10 +7,10 @@ Implements prompt scaffolding and basic injection detection.
 
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
-from src.legal_ai.core.logging import get_logger
 from src.legal_ai.core.exceptions import GenerationError
+from src.legal_ai.core.logging import get_logger
 
 LOGGER = get_logger(__name__)
 
@@ -42,10 +42,10 @@ class LLMManager:
       - Structured prompt scaffolding with system instruction
     """
 
-    def __init__(self, config: Optional[Dict[str, Any]] = None) -> None:
-        self.config: Dict[str, Any] = config or {}
+    def __init__(self, config: dict[str, Any] | None = None) -> None:
+        self.config: dict[str, Any] = config or {}
         self.backend: Any = None
-        self.actual_backend: Optional[str] = None
+        self.actual_backend: str | None = None
 
     # ------------------------------------------------------------------
     # Security helpers
@@ -75,7 +75,10 @@ class LLMManager:
     def load(self) -> None:
         """Load the best available backend.  Raises GenerationError if none found."""
         try:
-            from qwen_transformers_backend import QwenConfig, QwenTransformersBackend  # type: ignore
+            from src.legal_ai.generation.backends.qwen_transformers_backend import (  # type: ignore
+                QwenConfig,
+                QwenTransformersBackend,
+            )
 
             qconf = QwenConfig()
             for k, v in self.config.items():
@@ -90,7 +93,9 @@ class LLMManager:
             LOGGER.warning("Qwen backend unavailable: %s", exc)
 
         try:
-            from llm_backend_template import ExampleLocalLLM  # type: ignore
+            from src.legal_ai.generation.backends.llm_backend_template import (
+                ExampleLocalLLM,  # type: ignore
+            )
 
             self.backend = ExampleLocalLLM(model=None)
             self.actual_backend = "example_local"
@@ -132,7 +137,7 @@ class LLMManager:
 
         raise GenerationError("Loaded backend does not implement generate()")
 
-    def info(self) -> Dict[str, Any]:
+    def info(self) -> dict[str, Any]:
         if self.backend is None:
             return {"backend": None}
         if hasattr(self.backend, "info"):

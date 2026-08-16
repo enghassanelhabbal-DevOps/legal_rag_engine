@@ -9,14 +9,14 @@ from __future__ import annotations
 
 import time
 from dataclasses import asdict
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import numpy as np
 
-from src.legal_ai.core.models import PipelineConfig, RetrievalHit
 from src.legal_ai.core.logging import get_logger
-from src.legal_ai.retrieval.dense import DenseEncoder, DenseIndex
+from src.legal_ai.core.models import PipelineConfig, RetrievalHit
 from src.legal_ai.retrieval.bm25 import BM25
+from src.legal_ai.retrieval.dense import DenseEncoder, DenseIndex
 
 LOGGER = get_logger(__name__)
 
@@ -48,11 +48,11 @@ class HybridRetriever:
 
     def __init__(
         self,
-        documents: List[Dict[str, Any]],
+        documents: list[dict[str, Any]],
         encoder: DenseEncoder,
         dense_index: DenseIndex,
         bm25: BM25,
-        reranker: Optional[Any],   # src.legal_ai.reranking.Reranker — injected
+        reranker: Any | None,   # src.legal_ai.reranking.Reranker — injected
         config: PipelineConfig,
     ) -> None:
         self.documents = documents
@@ -66,11 +66,11 @@ class HybridRetriever:
     # Individual search heads
     # ------------------------------------------------------------------
 
-    def dense_search(self, query: str, k: Optional[int] = None) -> List[RetrievalHit]:
+    def dense_search(self, query: str, k: int | None = None) -> list[RetrievalHit]:
         k = k or self.config.dense_candidates
         q = self.encoder.encode_query(query)
         scores, indices = self.dense_index.search(q, k)
-        results: List[RetrievalHit] = []
+        results: list[RetrievalHit] = []
         for rank, (score, idx) in enumerate(zip(scores[0], indices[0]), start=1):
             if idx < 0:
                 continue
@@ -86,9 +86,9 @@ class HybridRetriever:
             )
         return results
 
-    def bm25_search(self, query: str, k: Optional[int] = None) -> List[RetrievalHit]:
+    def bm25_search(self, query: str, k: int | None = None) -> list[RetrievalHit]:
         k = k or self.config.bm25_candidates
-        results: List[RetrievalHit] = []
+        results: list[RetrievalHit] = []
         for _rank, (idx, score) in enumerate(self.bm25.top_n(query, k), start=1):
             d = self.documents[idx]
             results.append(
@@ -108,12 +108,12 @@ class HybridRetriever:
 
     @staticmethod
     def dense_preserving_union(
-        dense: List[RetrievalHit],
-        bm25: List[RetrievalHit],
+        dense: list[RetrievalHit],
+        bm25: list[RetrievalHit],
         max_candidates: int,
-    ) -> List[RetrievalHit]:
+    ) -> list[RetrievalHit]:
         """Merge dense + BM25 results keeping dense ordering at the head."""
-        merged: Dict[str, RetrievalHit] = {}
+        merged: dict[str, RetrievalHit] = {}
         for hit in dense:
             merged[hit.id] = RetrievalHit(**{**asdict(hit)})
         for hit in bm25:
@@ -140,7 +140,7 @@ class HybridRetriever:
             return np.full_like(values, 0.5, dtype=np.float32)
         return (values - lo) / (hi - lo)
 
-    def fuse(self, hits: List[RetrievalHit], alpha: Optional[float] = None) -> List[RetrievalHit]:
+    def fuse(self, hits: list[RetrievalHit], alpha: float | None = None) -> list[RetrievalHit]:
         """Compute final_score = α * dense_prior + (1-α) * normalised_reranker_score."""
         if not hits:
             return []
@@ -162,7 +162,7 @@ class HybridRetriever:
     # Public retrieve API
     # ------------------------------------------------------------------
 
-    def retrieve(self, query: str, top_k: Optional[int] = None) -> Dict[str, Any]:
+    def retrieve(self, query: str, top_k: int | None = None) -> dict[str, Any]:
         """Run the full pipeline and return a structured result dict."""
         top_k = top_k or self.config.final_k
         t0 = time.perf_counter()

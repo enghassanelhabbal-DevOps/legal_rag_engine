@@ -7,13 +7,14 @@ described in ARCHITECTURE_CONTRACT.md §Contracts (Answer.citations).
 
 from __future__ import annotations
 
-from typing import Any, Dict, List, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 
 def validate_citations(
-    citations: Sequence[Dict[str, Any]],
-    evidence: Sequence[Dict[str, Any]],
-) -> List[str]:
+    citations: Sequence[dict[str, Any]],
+    evidence: Sequence[dict[str, Any]],
+) -> list[str]:
     """Validate that every cited source_id appears in the evidence.
 
     Returns a list of warning strings for any citation that cannot be
@@ -29,7 +30,7 @@ def validate_citations(
         List of warning strings (empty if all citations are valid).
     """
     evidence_ids = {str(e.get("id", "")) for e in evidence}
-    warnings: List[str] = []
+    warnings: list[str] = []
     for c in citations:
         cid = str(c.get("id") or c.get("source_id") or "")
         if cid and cid not in evidence_ids:
