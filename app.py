@@ -424,30 +424,229 @@ def render_results(results: list[dict[str, Any]]) -> None:
         )
 
 
+@st.cache_resource
+def get_local_rag_service() -> Any | None:
+    try:
+        from src.legal_ai.core.models import PipelineConfig, RuntimeConfig
+        from src.legal_ai.services.query_service import QueryService
+
+        artifact_dir = ROOT / "artifacts" / "streamlit_live"
+        artifact_dir.mkdir(parents=True, exist_ok=True)
+        docs = load_legal_documents()
+        runtime = RuntimeConfig(device="cpu", precision="auto", dense_batch_size=8, rerank_batch_size=4)
+        pipeline_cfg = PipelineConfig(final_k=5, dense_candidates=30, bm25_candidates=12, rerank_candidates=30)
+        return QueryService(documents=docs, runtime=runtime, pipeline_cfg=pipeline_cfg, artifact_dir=artifact_dir, load_reranker=False)
+    except Exception:
+        return None
+
+
+def render_live_answer(result: dict[str, Any]) -> None:
+    st.subheader("الإجابة المولدة")
+    answer_text = str(result.get("answer") or "لم يتم توليد إجابة صالحة.")
+    st.markdown(answer_text)
+
+    metrics = result.get("timing") or {}
+    if metrics:
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Retrieval", f"{metrics.get('retrieval_ms', 0):.0f} ms")
+        col2.metric("Generation", f"{metrics.get('generation_ms', 0):.0f} ms")
+        col3.metric("Total", f"{metrics.get('total_ms', 0):.0f} ms")
+
+    citations = result.get("citations") or []
+    if citations:
+        st.markdown("### المراجع")
+        for idx, citation in enumerate(citations, start=1):
+            title = citation.get("law_name") or citation.get("title") or "مصدر قانوني"
+            article = citation.get("article_id") or citation.get("article") or "N/A"
+            text = citation.get("text") or citation.get("content") or ""
+            st.markdown(f"**{idx}. {title} / المادة {article}**\n\n{text[:350]}")
+
+    warnings = result.get("warnings") or []
+    if warnings:
+        st.warning("\n".join(warnings))
+
+    evidence = result.get("evidence") or []
+    if evidence:
+        st.markdown("### أدلة السياق")
+        for idx, hit in enumerate(evidence[:3], start=1):
+            st.write(f"{idx}. {hit.get('law_name', 'غير محدد')} / المادة {hit.get('article_id', 'N/A')}: {str(hit.get('text', ''))[:220]}")
+
+
+def _provider_model_label(provider: str, config: dict[str, Any]) -> str:
+    if provider == "OpenAI":
+        return config.get("openai_model") or "gpt-4o-mini"
+    if provider == "Google Gemini":
+        return config.get("gemini_model") or "gemini-1.5-flash"
+    if provider == "Custom API":
+        return config.get("custom_model") or "custom-model"
+    return config.get("llm_model") or "Local Qwen"
+
+
+def _build_context_summary(results: list[dict[str, Any]]) -> str:
+    if not results:
+        return "لا توجد أدلة قانونية متاحة."
+    snippets: list[str] = []
+    for item in results[:4]:
+        law_name = item.get("law_name") or "القانون"
+        article_id = item.get("article_id") or "N/A"
+        content = str(item.get("content") or item.get("text") or "")
+        snippets.append(f"{law_name} / المادة {article_id}: {content[:250]}")
+    return "\n\n".join(snippets)
+
+
+def _extract_json_answer(raw: str) -> dict[str, Any]:
+    try:
+        import json
+
+        parsed = json.loads(raw)
+        if isinstance(parsed, dict):
+            return parsed
+    except Exception:
+        pass
+    return {"answer": raw.strip() or "No answer available", "citations": [], "warnings": []}
+
+
+def _call_openai_provider(question: str, context: str, config: dict[str, Any]) -> dict[str, Any]:
+    api_key = (config.get("openai_key") or os.getenv("OPENAI_API_KEY") or "").strip()
+    if not api_key:
+        return {"answer": None, "warnings": ["OpenAI API key is missing."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+    payload = {
+        "model": config.get("openai_model") or "gpt-4o-mini",
+        "messages": [
+            {"role": "system", "content": "You are a strict Arabic legal assistant. Use only the provided evidence. Cite the legal source in Arabic with article references when available."},
+            {"role": "user", "content": f"السؤال: {question}\n\nالسياق:\n{context}\n\nأجب بالعربية مع ذكر المراجع القانونية بشكل واضح."},
+        ],
+        "temperature": 0.2,
+    }
+    try:
+        response = requests.post(
+            "https://api.openai.com/v1/chat/completions",
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            json=payload,
+            timeout=30,
+        )
+        if not response.ok:
+            return {"answer": None, "warnings": [f"OpenAI provider failed: {response.status_code} {response.text[:200]}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+        data = response.json()
+        raw = data["choices"][0]["message"]["content"]
+        parsed = _extract_json_answer(raw)
+        parsed.setdefault("warnings", [])
+        return {"answer": parsed.get("answer") or raw, "citations": parsed.get("citations", []), "warnings": parsed.get("warnings", []), "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+    except requests.RequestException as exc:
+        return {"answer": None, "warnings": [f"OpenAI request error: {exc}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+
+def _call_gemini_provider(question: str, context: str, config: dict[str, Any]) -> dict[str, Any]:
+    api_key = (config.get("google_key") or os.getenv("GOOGLE_API_KEY") or "").strip()
+    if not api_key:
+        return {"answer": None, "warnings": ["Google API key is missing."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+    model_name = config.get("gemini_model") or "gemini-1.5-flash"
+    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+    payload = {
+        "contents": [{
+            "parts": [{
+                "text": f"Use only the following legal context. Answer in Arabic with citations to the law and article.\n\nQuestion: {question}\n\nContext:\n{context}"
+            }]
+        }],
+        "generationConfig": {"temperature": 0.2, "maxOutputTokens": 800},
+    }
+    try:
+        response = requests.post(url, json=payload, timeout=30)
+        if not response.ok:
+            return {"answer": None, "warnings": [f"Gemini provider failed: {response.status_code} {response.text[:200]}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+        data = response.json()
+        text = data.get("candidates", [{}])[0].get("content", {}).get("parts", [{}])[0].get("text", "")
+        return {"answer": text or None, "citations": [], "warnings": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+    except requests.RequestException as exc:
+        return {"answer": None, "warnings": [f"Gemini request error: {exc}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+
+def _call_custom_provider(question: str, context: str, config: dict[str, Any]) -> dict[str, Any]:
+    endpoint = (config.get("custom_endpoint") or os.getenv("LEGAL_API_URL") or "").strip()
+    if not endpoint:
+        return {"answer": None, "warnings": ["Custom endpoint is not configured."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+    try:
+        response = requests.post(endpoint, json={"query": question, "top_k": config.get("top_k", 5), "context": context}, timeout=25)
+        if not response.ok:
+            return {"answer": None, "warnings": [f"Custom API failed: {response.status_code} {response.text[:200]}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+        payload = response.json()
+        return {
+            "answer": payload.get("answer"),
+            "citations": payload.get("citations", []),
+            "warnings": payload.get("warnings", []),
+            "timing": payload.get("timing", {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}),
+            "evidence": payload.get("evidence", payload.get("sources", [])),
+        }
+    except requests.RequestException as exc:
+        return {"answer": None, "warnings": [f"Custom API request error: {exc}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+
+def _execute_provider_flow(question: str, config: dict[str, Any], results: list[dict[str, Any]]) -> dict[str, Any]:
+    provider = config.get("provider") or "Local Qwen"
+    context = _build_context_summary(results)
+
+    if provider == "Local Qwen":
+        rag = get_local_rag_service()
+        if rag is not None:
+            try:
+                answer_obj = rag.answer(question, top_k=config.get("top_k", 5))
+                return {
+                    "answer": answer_obj.answer,
+                    "citations": answer_obj.citations,
+                    "warnings": answer_obj.warnings,
+                    "timing": answer_obj.timing,
+                    "evidence": answer_obj.evidence,
+                    "provider": provider,
+                    "model": _provider_model_label(provider, config),
+                }
+            except Exception as exc:
+                return {"answer": None, "warnings": [f"Local Qwen runtime failed: {exc}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": results, "provider": provider, "model": _provider_model_label(provider, config)}
+        return {"answer": None, "warnings": ["Local Qwen backend is unavailable; falling back to retrieval."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": results, "provider": provider, "model": _provider_model_label(provider, config)}
+
+    if provider == "OpenAI":
+        return {**_call_openai_provider(question, context, config), "provider": provider, "model": _provider_model_label(provider, config)}
+    if provider == "Google Gemini":
+        return {**_call_gemini_provider(question, context, config), "provider": provider, "model": _provider_model_label(provider, config)}
+    if provider == "Custom API":
+        return {**_call_custom_provider(question, context, config), "provider": provider, "model": _provider_model_label(provider, config)}
+
+    return {
+        "answer": None,
+        "warnings": ["No valid provider selected. Using retrieval-only fallback."],
+        "citations": [],
+        "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0},
+        "evidence": results,
+        "provider": provider,
+        "model": _provider_model_label(provider, config),
+    }
+
+
 def render_sidebar() -> dict[str, Any]:
     with st.sidebar:
         st.header("⚙️ Control center")
-        st.caption("Choose your model and API settings")
+        st.caption("Choose your AI provider, model, and retrieval stack")
 
-        llm_model = st.selectbox(
-            "LLM model",
-            [
-                "Qwen 3 (local)",
-                "Gemini 2.5",
-                "GPT-4o mini",
-                "Llama 3.1",
-                "Claude Sonnet",
-            ],
+        provider = st.selectbox(
+            "LLM provider",
+            ["Local Qwen", "OpenAI", "Google Gemini", "Custom API"],
             index=0,
         )
+
+        if provider == "Local Qwen":
+            model_choices = ["Qwen 3 (local)", "Qwen 2.5 (local)", "TinyLlama"]
+        elif provider == "OpenAI":
+            model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"]
+        elif provider == "Google Gemini":
+            model_choices = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+        else:
+            model_choices = ["custom-model", "openai-compatible-model"]
+
+        llm_model = st.selectbox("LLM model", model_choices, index=0)
         backend = st.selectbox(
             "Transformer backend",
-            [
-                "Transformers",
-                "vLLM",
-                "LangChain",
-                "OpenAI-compatible API",
-            ],
+            ["Transformers", "vLLM", "LangChain", "OpenAI-compatible API"],
             index=0,
         )
         retrieval_mode = st.selectbox(
@@ -473,6 +672,7 @@ def render_sidebar() -> dict[str, Any]:
         )
 
         return {
+            "provider": provider,
             "llm_model": llm_model,
             "backend": backend,
             "retrieval_mode": retrieval_mode,
@@ -481,6 +681,9 @@ def render_sidebar() -> dict[str, Any]:
             "google_key": google_key,
             "hf_token": hf_token,
             "custom_endpoint": custom_endpoint,
+            "openai_model": llm_model if provider == "OpenAI" else (os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
+            "gemini_model": llm_model if provider == "Google Gemini" else (os.getenv("GEMINI_MODEL", "gemini-1.5-flash")),
+            "custom_model": llm_model if provider == "Custom API" else "custom-model",
         }
 
 
@@ -596,41 +799,40 @@ def main() -> None:
             prompt_value = st.session_state["pending_prompt"]
             st.session_state["pending_prompt"] = ""
             st.session_state["chat_history"].append(("user", prompt_value))
-            with st.spinner("جاري استرجاع السياق القانوني..."):
-                api_target = config["custom_endpoint"] or API_URL
-                results: list[dict[str, Any]] = []
-                if api_target:
-                    try:
-                        response = requests.post(api_target, json={"query": prompt_value, "top_k": config["top_k"]}, timeout=20)
-                        if response.ok:
-                            payload = response.json()
-                            results = payload.get("sources", [])
-                            answer = payload.get("answer")
-                        else:
-                            answer = None
-                            results = []
-                    except requests.RequestException:
-                        answer = None
-                        results = []
-                if not results:
-                    results = simple_search(prompt_value, k=config["top_k"])
-                if results:
-                    first = results[0]
-                    answer_text = (
-                        f"استنادًا إلى {first.get('law_name', 'القانون')} / المادة {first.get('article_id', 'N/A')}، "
-                        f"المعلومة الأساسية هي: {first.get('content', '')[:260]}"
+            with st.spinner("جاري استرجاع السياق القانوني وتحليل الإجابة..."):
+                results = simple_search(prompt_value, k=config["top_k"])
+                result_payload = _execute_provider_flow(prompt_value, config, results)
+
+                if not result_payload.get("answer"):
+                    fallback_text = (
+                        "لم أجد إجابة قادرة على التوليد عبر الـ provider المختار، لذلك تم استخدام البحث القانوني المحلي. "
+                        f"أقرب دليل: {results[0].get('content', '')[:260] if results else 'لا توجد نتائج.'}"
                     )
-                    if len(results) > 1:
-                        answer_text += "\n\nمراجع أخرى: " + "; ".join(
-                            f"{item.get('law_name', 'القانون')} / المادة {item.get('article_id', 'N/A')}"
-                            for item in results[1:4]
-                        )
-                    answer_text = answer_text.strip()
-                else:
-                    answer_text = "لم أجد نتائج مناسبة. جرّب إعادة صياغة السؤال أو استخدم نموذجًا مختلفًا من الإعدادات." 
+                    result_payload = {
+                        "answer": fallback_text,
+                        "citations": [{
+                            "law_name": r.get("law_name", "غير محدد"),
+                            "article_id": r.get("article_id", "N/A"),
+                            "text": r.get("content", ""),
+                        } for r in results[:3]],
+                        "warnings": result_payload.get("warnings", ["Fallback retrieval was used because the selected provider was unavailable."]),
+                        "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0},
+                        "evidence": results,
+                        "provider": config.get("provider", "Local Qwen"),
+                        "model": _provider_model_label(config.get("provider", "Local Qwen"), config),
+                    }
+
+                answer_text = str(result_payload.get("answer") or "لم أتمكن من توليد إجابة فورية.")
+                citations = result_payload.get("citations") or []
+                if citations:
+                    citation_summary = "; ".join(
+                        f"{item.get('law_name', 'القانون')} / المادة {item.get('article_id', 'N/A')}"
+                        for item in citations[:3]
+                    )
+                    answer_text = f"{answer_text}\n\nالمراجع: {citation_summary}"
 
                 st.session_state["chat_history"].append(("assistant", answer_text))
-                st.session_state["last_results"] = results
+                st.session_state["last_result"] = result_payload
             st.rerun()
 
         st.markdown("</div>", unsafe_allow_html=True)
@@ -638,28 +840,48 @@ def main() -> None:
 
     with insight_col:
         st.markdown("<div class='panel-box'><h3>Model status</h3></div>", unsafe_allow_html=True)
-        st.metric("Chosen model", config["llm_model"])
+        st.metric("Provider", config.get("provider", "Local Qwen"))
+        st.metric("Model", config["llm_model"])
         st.metric("Backend", config["backend"])
         st.metric("Retrieval", config["retrieval_mode"])
+
+        rag = get_local_rag_service()
+        if rag is not None and getattr(rag, "llm", None) is not None and rag.llm.backend is not None:
+            try:
+                model_info = rag.llm.info()
+                st.caption(f"Runtime: {model_info.get('actual_model') or 'local'}")
+            except Exception:
+                st.caption("Runtime: local backend available")
+        else:
+            st.caption("Runtime: fallback mode (local model unavailable)")
 
         st.markdown("<div class='panel-box' style='margin-top: 1rem;'><h3>Evidence overview</h3></div>", unsafe_allow_html=True)
         for name, pct in [("Coverage", 92), ("Recall", 87), ("Latency", 91)]:
             st.progress(pct / 100, text=f"{name}: {pct}%")
 
-        if "last_results" in st.session_state and st.session_state["last_results"]:
-            st.markdown("<div class='panel-box' style='margin-top: 1rem;'><h3>Latest sources</h3></div>", unsafe_allow_html=True)
-            for idx, hit in enumerate(st.session_state["last_results"][:3], start=1):
-                st.markdown(
-                    f"""
-                    <div class='result-card'>
-                        <div class='badge'>#{idx}</div>
-                        <h3>{hit.get('law_name', 'غير محدد')} / المادة {hit.get('article_id', 'N/A')}</h3>
-                        <div class='small-muted'>{hit.get('title', '')}</div>
-                        <p>{str(hit.get('content', ''))[:180]}</p>
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
+        if "last_result" in st.session_state and st.session_state["last_result"]:
+            metrics = st.session_state["last_result"].get("timing") or {}
+            if metrics:
+                st.markdown("<div class='panel-box' style='margin-top: 1rem;'><h3>Live metrics</h3></div>", unsafe_allow_html=True)
+                st.metric("Retrieval", f"{metrics.get('retrieval_ms', 0):.0f} ms")
+                st.metric("Generation", f"{metrics.get('generation_ms', 0):.0f} ms")
+                st.metric("Total", f"{metrics.get('total_ms', 0):.0f} ms")
+
+            evidence = st.session_state["last_result"].get("evidence") or []
+            if evidence:
+                st.markdown("<div class='panel-box' style='margin-top: 1rem;'><h3>Latest sources</h3></div>", unsafe_allow_html=True)
+                for idx, hit in enumerate(evidence[:3], start=1):
+                    st.markdown(
+                        f"""
+                        <div class='result-card'>
+                            <div class='badge'>#{idx}</div>
+                            <h3>{hit.get('law_name', 'غير محدد')} / المادة {hit.get('article_id', 'N/A')}</h3>
+                            <div class='small-muted'>{hit.get('title', '')}</div>
+                            <p>{str(hit.get('content', ''))[:180]}</p>
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
 
 
 if __name__ == "__main__":
