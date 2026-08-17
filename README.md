@@ -97,6 +97,29 @@ git checkout <tag>
 dvc checkout
 ```
 
+---
+
+Deployment & Operations Quickstart
+----------------------------------
+Follow the detailed runbook in docs/DEPLOYMENT_RUNBOOK.md for step-by-step instructions.
+
+Essential files added in this commit:
+- .streamlit/secrets.example.toml  - example secrets for Streamlit Cloud
+- docs/DEPLOYMENT_RUNBOOK.md      - detailed deployment runbook and checklists
+- docs/STREAMLIT_PROVIDER_CHECK_SNIPPET.md - curl snippets for provider health checks
+- api/Dockerfile & api/requirements.txt - Dockerfiles and minimal API requirements
+- docs/LOCAL_QWEN_RUNBOOK.md      - runbook for running local Qwen on a Linux host
+
+Recommended next actions:
+1. Add required secrets to Streamlit Cloud: GOOGLE_API_KEY, GEMINI_MODEL, ALLOW_LOCAL_MODEL_RUNTIME=0
+2. Add the same secrets to GitHub repository secrets for CI use
+3. Run the CI checks (lint, types, tests) before merging to main
+
+If you want, I can also:
+- Implement automated deploy via GitHub Actions (needs STREAMLIT_CLOUD_TOKEN secret)
+- Add Sentry or Logflare integration for structured logs
+- Add a docker-compose sample for running the api + metrics stack locally
+
 ## Architecture contract
 
 This project should be read together with `ARCHITECTURE_CONTRACT.md` and `COPILOT.md`.

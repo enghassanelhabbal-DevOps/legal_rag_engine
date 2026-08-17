@@ -559,7 +559,7 @@ def _call_gemini_provider(question: str, context: str, config: dict[str, Any]) -
     if not api_key:
         return {"answer": None, "warnings": ["Google API key is missing."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
 
-    model_name = config.get("gemini_model") or "gemini-1.5-flash"
+    model_name = config.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     payload = {
         "contents": [{
@@ -584,8 +584,20 @@ def _call_custom_provider(question: str, context: str, config: dict[str, Any]) -
     endpoint = (config.get("custom_endpoint") or os.getenv("LEGAL_API_URL") or "").strip()
     if not endpoint:
         return {"answer": None, "warnings": ["Custom endpoint is not configured."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+    # Prefer API key from config (sidebar), then Streamlit secrets, then env
     try:
-        response = requests.post(endpoint, json={"query": question, "top_k": config.get("top_k", 5), "context": context}, timeout=25)
+        secrets_api_key = st.secrets.get("API_KEY") if hasattr(st, "secrets") else None
+    except Exception:
+        secrets_api_key = None
+    api_key = (config.get("api_key") or secrets_api_key or os.getenv("API_KEY") or "").strip()
+    headers = {"Content-Type": "application/json"}
+    if api_key:
+        headers["x-api-key"] = api_key
+
+    try:
+        # Use a conservative timeout and verify SSL by default
+        response = requests.post(endpoint, json={"query": question, "top_k": config.get("top_k", 5), "context": context}, headers=headers, timeout=25)
         if not response.ok:
             return {"answer": None, "warnings": [f"Custom API failed: {response.status_code} {response.text[:200]}"], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
         payload = response.json()
@@ -668,7 +680,11 @@ def _probe_provider(config: dict[str, Any]) -> tuple[bool, str]:
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
             try:
                 r = requests.get(url, timeout=6)
-                return (r.ok, f"Google: {r.status_code}")
+                # Provide a clearer message when model names are invalid
+                if r.ok:
+                    return (True, f"Google: {r.status_code}")
+                # Attach response text snippet for debugging (truncated)
+                return (False, f"Google probe returned {r.status_code}: {r.text[:200]}")
             except Exception as e:
                 return False, f"Google probe error: {e}"
 
@@ -703,7 +719,7 @@ def render_sidebar() -> dict[str, Any]:
         elif provider == "OpenAI":
             model_choices = ["gpt-4o-mini", "gpt-4o", "gpt-4.1-mini"]
         elif provider == "Google Gemini":
-            model_choices = ["gemini-1.5-flash", "gemini-1.5-pro", "gemini-2.0-flash"]
+            model_choices = ["gemini-2.5-flash-lite", "gemini-2.5-flash", "gemini-2.5-pro"]
         else:
             model_choices = ["custom-model", "openai-compatible-model"]
 
@@ -729,6 +745,7 @@ def render_sidebar() -> dict[str, Any]:
             value="",
             placeholder="https://api.example.com/v1",
         )
+        api_key = st.text_input("Backend API key", type="password", help="Optional: x-api-key for Custom API. Defaults to Streamlit Secrets.API_KEY if set.")
 
         st.markdown("### Project overview")
         st.markdown(
@@ -745,8 +762,9 @@ def render_sidebar() -> dict[str, Any]:
             "google_key": google_key,
             "hf_token": hf_token,
             "custom_endpoint": custom_endpoint,
+            "api_key": api_key,
             "openai_model": llm_model if provider == "OpenAI" else (os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
-            "gemini_model": llm_model if provider == "Google Gemini" else (os.getenv("GEMINI_MODEL", "gemini-1.5-flash")),
+            "gemini_model": llm_model if provider == "Google Gemini" else (os.getenv("GEMINI_MODEL", "gemini-2.5-flash")),
             "custom_model": llm_model if provider == "Custom API" else "custom-model",
         }
 
@@ -914,11 +932,22 @@ def main() -> None:
         if config.get("provider") == "Local Qwen":
             if not LOCAL_RUNTIME_ALLOWED:
                 st.caption("Runtime: disabled by environment — local FAISS/BGE model is not safe in this environment")
-            elif last_runtime_error:
-                message = last_runtime_error.splitlines()[-1][:160]
-                st.caption(f"Runtime: unavailable — {message}")
+                st.info("To enable local runtime, follow docs/LOCAL_QWEN_RUNBOOK.md and run the backend on a dedicated Linux host. Or choose a cloud provider (Google Gemini / OpenAI) in the sidebar.")
             else:
-                st.caption("Runtime: idle — local model loads only when explicitly enabled")
+                if last_runtime_error:
+                    st.error("Last local runtime error: " + str(last_runtime_error)[:400])
+                    message = str(last_runtime_error).splitlines()[-1][:160]
+                    st.caption(f"Runtime: unavailable — {message}")
+                else:
+                    if st.button("Check local runtime", key="check_local_runtime"):
+                        st.info("Checking local runtime...")
+                        ok, msg = _probe_provider(config)
+                        if ok:
+                            st.success(msg)
+                        else:
+                            st.error(msg)
+                    else:
+                        st.caption("Runtime: idle — local model loads only when explicitly enabled")
         else:
             st.caption(f"Runtime: {config.get('provider', 'external')} provider selected")
 

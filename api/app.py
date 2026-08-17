@@ -6,10 +6,15 @@ from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
+import logging
 from fastapi import FastAPI, Header, HTTPException, Request
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 from pydantic import BaseModel
 from starlette.responses import JSONResponse, Response
+
+# basic logger to stdout (structured logs are handled by src/legal_ai/services/logging_utils if desired)
+logging.basicConfig(level=logging.INFO, format='%(asctime)s %(levelname)s %(message)s')
+logger = logging.getLogger("legal_rag_api")
 
 from src.legal_ai.core.config import load_json, set_seed
 from src.legal_ai.core.models import PipelineConfig, RuntimeConfig
@@ -94,13 +99,18 @@ async def query(
 
     try:
         set_seed()
-        docs_path = Path("legal_documents (1).json")
-        if not docs_path.exists():
+        # Accept multiple possible locations for the documents file (robust against copy/paste names)
+        candidate_paths = [Path("legal_documents.json"), Path("data") / "legal_documents.json", Path("legal_documents (1).json")]
+        docs_path = None
+        for candidate in candidate_paths:
+            if candidate.exists():
+                docs_path = candidate
+                break
+        if docs_path is None:
             raise HTTPException(
                 status_code=404,
                 detail=(
-                    "Documents file not found; ingest first or place legal_documents "
-                    "(1).json in the app root"
+                    "Documents file not found; ingest first or place legal_documents.json (or data/legal_documents.json) in the app root"
                 ),
             )
         documents = load_json(docs_path)
