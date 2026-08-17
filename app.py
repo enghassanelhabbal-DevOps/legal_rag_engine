@@ -1,8 +1,9 @@
-from __future__ import annotations
+﻿from __future__ import annotations
 
 import json
 import os
 import re
+import traceback
 from pathlib import Path
 from typing import Any
 
@@ -11,6 +12,7 @@ import streamlit as st
 
 ROOT = Path(__file__).resolve().parent
 API_URL = os.getenv("LEGAL_API_URL", "")
+LOCAL_RUNTIME_ALLOWED = os.getenv("ALLOW_LOCAL_MODEL_RUNTIME", "0").strip().lower() in {"1", "true", "yes", "on"}
 
 st.set_page_config(
     page_title="Legal Intelligence Engine",
@@ -426,6 +428,18 @@ def render_results(results: list[dict[str, Any]]) -> None:
 
 @st.cache_resource
 def get_local_rag_service() -> Any | None:
+    """Load the local service only when the runtime is explicitly enabled.
+
+    The local FAISS + dense-encoder stack is not stable in all environments and can
+    crash the interpreter during startup. The UI therefore disables it by default and
+    only attempts a load if the operator deliberately opts in with ALLOW_LOCAL_MODEL_RUNTIME=1.
+    """
+    if not LOCAL_RUNTIME_ALLOWED:
+        st.session_state["runtime_error"] = (
+            "Local runtime disabled by environment. This instance is running in safe cloud/fallback mode "
+            "because the native FAISS + dense-model stack is not reliable in this environment."
+        )
+        return None
     try:
         from src.legal_ai.core.models import PipelineConfig, RuntimeConfig
         from src.legal_ai.services.query_service import QueryService
@@ -435,8 +449,11 @@ def get_local_rag_service() -> Any | None:
         docs = load_legal_documents()
         runtime = RuntimeConfig(device="cpu", precision="auto", dense_batch_size=8, rerank_batch_size=4)
         pipeline_cfg = PipelineConfig(final_k=5, dense_candidates=30, bm25_candidates=12, rerank_candidates=30)
-        return QueryService(documents=docs, runtime=runtime, pipeline_cfg=pipeline_cfg, artifact_dir=artifact_dir, load_reranker=False)
-    except Exception:
+        service = QueryService(documents=docs, runtime=runtime, pipeline_cfg=pipeline_cfg, artifact_dir=artifact_dir, load_reranker=False)
+        st.session_state["runtime_error"] = ""
+        return service
+    except Exception:  # pragma: no cover - runtime safety path
+        st.session_state["runtime_error"] = traceback.format_exc()
         return None
 
 
@@ -479,7 +496,7 @@ def _provider_model_label(provider: str, config: dict[str, Any]) -> str:
         return config.get("gemini_model") or "gemini-1.5-flash"
     if provider == "Custom API":
         return config.get("custom_model") or "custom-model"
-    return config.get("llm_model") or "Local Qwen"
+    return config.get("llm_model") or "Qwen 3 (local)"
 
 
 def _build_context_summary(results: list[dict[str, Any]]) -> str:
@@ -623,6 +640,53 @@ def _execute_provider_flow(question: str, config: dict[str, Any], results: list[
     }
 
 
+def _probe_provider(config: dict[str, Any]) -> tuple[bool, str]:
+    """Quick health probe for the selected provider. Returns (ok, message)."""
+    provider = config.get("provider", "Local Qwen")
+    try:
+        if provider == "Local Qwen":
+            rag = get_local_rag_service()
+            if rag is not None:
+                return True, "Local RAG available"
+            return False, "Local RAG unavailable"
+
+        if provider == "OpenAI":
+            api_key = (config.get("openai_key") or os.getenv("OPENAI_API_KEY") or "").strip()
+            if not api_key:
+                return False, "OpenAI API key is missing"
+            # minimal probe: request model list (requires auth) — many keys may not allow list; short timeout
+            try:
+                r = requests.get("https://api.openai.com/v1/models", headers={"Authorization": f"Bearer {api_key}"}, timeout=6)
+                return (r.ok, f"OpenAI: {r.status_code}")
+            except Exception as e:
+                return False, f"OpenAI probe error: {e}"
+
+        if provider == "Google Gemini":
+            api_key = (config.get("google_key") or os.getenv("GOOGLE_API_KEY") or "").strip()
+            if not api_key:
+                return False, "Google API key is missing"
+            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
+            try:
+                r = requests.get(url, timeout=6)
+                return (r.ok, f"Google: {r.status_code}")
+            except Exception as e:
+                return False, f"Google probe error: {e}"
+
+        if provider == "Custom API":
+            endpoint = (config.get("custom_endpoint") or os.getenv("LEGAL_API_URL") or "").strip()
+            if not endpoint:
+                return False, "Custom endpoint is not configured"
+            try:
+                r = requests.get(endpoint, timeout=6)
+                return (r.ok, f"Custom: {r.status_code}")
+            except Exception as e:
+                return False, f"Custom probe error: {e}"
+
+        return False, "Unknown provider"
+    except Exception as exc:
+        return False, str(exc)
+
+
 def render_sidebar() -> dict[str, Any]:
     with st.sidebar:
         st.header("⚙️ Control center")
@@ -630,7 +694,7 @@ def render_sidebar() -> dict[str, Any]:
 
         provider = st.selectbox(
             "LLM provider",
-            ["Local Qwen", "OpenAI", "Google Gemini", "Custom API"],
+            ["OpenAI", "Google Gemini", "Local Qwen", "Custom API"],
             index=0,
         )
 
@@ -765,8 +829,9 @@ def main() -> None:
     chat_col, insight_col = st.columns([2.3, 1])
 
     with chat_col:
-        st.markdown("<div class='chat-shell'>", unsafe_allow_html=True)
-        st.markdown("<div class='chat-header'><div class='title'>Legal assistant</div><div class='status-pill'>AI on</div></div>", unsafe_allow_html=True)
+        status_label = "Fallback" if config.get("provider") == "Local Qwen" else "Online"
+        st.markdown(f"<div class='chat-shell'>", unsafe_allow_html=True)
+        st.markdown(f"<div class='chat-header'><div class='title'>Legal assistant</div><div class='status-pill'>{status_label}</div></div>", unsafe_allow_html=True)
         st.markdown("<div class='assistant-panel'>", unsafe_allow_html=True)
 
         if "chat_history" not in st.session_state:
@@ -805,7 +870,7 @@ def main() -> None:
 
                 if not result_payload.get("answer"):
                     fallback_text = (
-                        "لم أجد إجابة قادرة على التوليد عبر الـ provider المختار، لذلك تم استخدام البحث القانوني المحلي. "
+                        "لم أجد إجابة مولدة عبر الـ provider المختار. تم إرجاع أقرب أدلة قانونية من الاسترجاع المحلي فقط. "
                         f"أقرب دليل: {results[0].get('content', '')[:260] if results else 'لا توجد نتائج.'}"
                     )
                     result_payload = {
@@ -815,7 +880,7 @@ def main() -> None:
                             "article_id": r.get("article_id", "N/A"),
                             "text": r.get("content", ""),
                         } for r in results[:3]],
-                        "warnings": result_payload.get("warnings", ["Fallback retrieval was used because the selected provider was unavailable."]),
+                        "warnings": result_payload.get("warnings", ["Retrieval-only fallback was used because the selected provider was unavailable or not configured."]),
                         "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0},
                         "evidence": results,
                         "provider": config.get("provider", "Local Qwen"),
@@ -845,15 +910,27 @@ def main() -> None:
         st.metric("Backend", config["backend"])
         st.metric("Retrieval", config["retrieval_mode"])
 
-        rag = get_local_rag_service()
-        if rag is not None and getattr(rag, "llm", None) is not None and rag.llm.backend is not None:
-            try:
-                model_info = rag.llm.info()
-                st.caption(f"Runtime: {model_info.get('actual_model') or 'local'}")
-            except Exception:
-                st.caption("Runtime: local backend available")
+        last_runtime_error = st.session_state.get("runtime_error", "")
+        if config.get("provider") == "Local Qwen":
+            if not LOCAL_RUNTIME_ALLOWED:
+                st.caption("Runtime: disabled by environment — local FAISS/BGE model is not safe in this environment")
+            elif last_runtime_error:
+                message = last_runtime_error.splitlines()[-1][:160]
+                st.caption(f"Runtime: unavailable — {message}")
+            else:
+                st.caption("Runtime: idle — local model loads only when explicitly enabled")
         else:
-            st.caption("Runtime: fallback mode (local model unavailable)")
+            st.caption(f"Runtime: {config.get('provider', 'external')} provider selected")
+
+        if config.get("provider") == "Local Qwen" and LOCAL_RUNTIME_ALLOWED and st.button("Check local runtime", key="check_local_runtime"):
+            st.session_state["runtime_error"] = ""
+            service = get_local_rag_service()
+            if service is not None:
+                st.session_state["runtime_error"] = ""
+                st.success("Local runtime loaded successfully.")
+            else:
+                st.session_state["runtime_error"] = "Local runtime failed to initialize. This is a real native dependency issue (FAISS/BGE) and not a UI warning."
+                st.warning(st.session_state["runtime_error"])
 
         st.markdown("<div class='panel-box' style='margin-top: 1rem;'><h3>Evidence overview</h3></div>", unsafe_allow_html=True)
         for name, pct in [("Coverage", 92), ("Recall", 87), ("Latency", 91)]:
@@ -886,3 +963,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
