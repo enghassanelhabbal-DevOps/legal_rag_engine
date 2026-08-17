@@ -1,4 +1,10 @@
-fastapi
-uvicorn[standard]
-requests
-pydantic
+fastapi>=0.111
+uvicorn[standard]>=0.29
+requests>=2.32
+pydantic>=2.7
+numpy>=1.26
+python-dotenv>=1.0
+prometheus-client>=0.20
+torch>=2.2
+sentence-transformers>=3.0
+faiss-cpu>=1.8

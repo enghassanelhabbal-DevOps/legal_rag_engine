@@ -1,29 +1,44 @@
-version: "3.9"
-
 services:
   api:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: ./api/Dockerfile
     command: uvicorn api.app:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
+    env_file:
+      - .env
     environment:
-      API_KEY: ${API_KEY:-demo-key}
-      PYTHONPATH: /app
+      - PYTHONPATH=/app
+      - API_KEY=${API_KEY:-test-local-api-key}
     volumes:
       - .:/app
+    restart: unless-stopped
 
   streamlit:
     build:
       context: .
-      dockerfile: Dockerfile
-    command: streamlit run ui/streamlit_app.py --server.address 0.0.0.0 --server.port 8501
+      dockerfile: Dockerfile.streamlit
+    command: streamlit run app.py --server.address 0.0.0.0 --server.port 8501
     ports:
       - "8501:8501"
+    env_file:
+      - .env
     environment:
-      LEGAL_API_URL: http://api:8000/v1/query
+      - LEGAL_API_URL=http://api:8000/v1/query
+      - BACKEND_URL=http://api:8000/v1/query
+      - ALLOW_LOCAL_MODEL_RUNTIME=0
+      - PYTHONPATH=/app
     depends_on:
       - api
     volumes:
       - .:/app
+    restart: unless-stopped
+
+# model service intentionally omitted for local containerized run to avoid pulling large/credentialed images.
+# If you want a local model server, add it back with a valid image and set TGI_MODEL_ID/HF_TOKEN in .env
+
+# Notes:
+# - streamlit service uses a lightweight image that installs only streamlit and requests.
+# - api is built from the repo root so the Python package path remains "api.app".
+# - Use .env to provide BACKEND_API_KEY, API_KEY and other secrets (do not commit .env)

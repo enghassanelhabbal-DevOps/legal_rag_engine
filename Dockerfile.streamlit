@@ -1,0 +1,22 @@
+FROM python:3.12-slim
+
+WORKDIR /app
+
+# Install minimal system deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+ && rm -rf /var/lib/apt/lists/*
+
+# Copy only what's needed for the UI (app.py and supporting files)
+COPY app.py ./
+COPY .streamlit ./ .streamlit
+COPY docs ./docs
+
+# Install minimal Python deps for the Streamlit UI
+RUN python -m pip install --no-cache-dir --upgrade pip && \
+    python -m pip install --no-cache-dir streamlit requests
+
+EXPOSE 8501
+
+CMD ["streamlit", "run", "app.py", "--server.address=0.0.0.0", "--server.port=8501", "--server.headless=true"]

@@ -493,10 +493,23 @@ def _provider_model_label(provider: str, config: dict[str, Any]) -> str:
     if provider == "OpenAI":
         return config.get("openai_model") or "gpt-4o-mini"
     if provider == "Google Gemini":
-        return config.get("gemini_model") or "gemini-1.5-flash"
+        return config.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     if provider == "Custom API":
         return config.get("custom_model") or "custom-model"
     return config.get("llm_model") or "Qwen 3 (local)"
+
+
+def _default_provider() -> str:
+    endpoint = os.getenv("LEGAL_API_URL", "").strip() or os.getenv("BACKEND_URL", "").strip()
+    if endpoint:
+        return "Custom API"
+    if os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY"):
+        return "Google Gemini"
+    if os.getenv("OPENAI_API_KEY"):
+        return "OpenAI"
+    if LOCAL_RUNTIME_ALLOWED:
+        return "Local Qwen"
+    return "Custom API"
 
 
 def _build_context_summary(results: list[dict[str, Any]]) -> str:
@@ -555,11 +568,11 @@ def _call_openai_provider(question: str, context: str, config: dict[str, Any]) -
 
 
 def _call_gemini_provider(question: str, context: str, config: dict[str, Any]) -> dict[str, Any]:
-    api_key = (config.get("google_key") or os.getenv("GOOGLE_API_KEY") or "").strip()
+    api_key = (config.get("google_key") or os.getenv("GOOGLE_API_KEY") or os.getenv("GEMINI_API_KEY") or "").strip()
     if not api_key:
-        return {"answer": None, "warnings": ["Google API key is missing."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+        return {"answer": None, "warnings": ["Google API key is missing. Configure GOOGLE_API_KEY or GEMINI_API_KEY."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
 
-    model_name = config.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    model_name = config.get("gemini_model") or os.getenv("GEMINI_MODEL") or os.getenv("GOOGLE_MODEL") or "gemini-2.5-flash"
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     payload = {
         "contents": [{
@@ -585,12 +598,18 @@ def _call_custom_provider(question: str, context: str, config: dict[str, Any]) -
     if not endpoint:
         return {"answer": None, "warnings": ["Custom endpoint is not configured."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
 
-    # Prefer API key from config (sidebar), then Streamlit secrets, then env
+    # Prefer API key from config (sidebar), then Streamlit secrets, then env; support both API_KEY and BACKEND_API_KEY
     try:
         secrets_api_key = st.secrets.get("API_KEY") if hasattr(st, "secrets") else None
     except Exception:
         secrets_api_key = None
-    api_key = (config.get("api_key") or secrets_api_key or os.getenv("API_KEY") or "").strip()
+    api_key = (
+        config.get("api_key")
+        or secrets_api_key
+        or os.getenv("API_KEY")
+        or os.getenv("BACKEND_API_KEY")
+        or ""
+    ).strip()
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["x-api-key"] = api_key
@@ -708,10 +727,14 @@ def render_sidebar() -> dict[str, Any]:
         st.header("⚙️ Control center")
         st.caption("Choose your AI provider, model, and retrieval stack")
 
+        default_provider = _default_provider()
+        provider_choices = ["OpenAI", "Google Gemini", "Local Qwen", "Custom API"]
+        provider_index = provider_choices.index(default_provider) if default_provider in provider_choices else 0
+
         provider = st.selectbox(
             "LLM provider",
-            ["OpenAI", "Google Gemini", "Local Qwen", "Custom API"],
-            index=0,
+            provider_choices,
+            index=provider_index,
         )
 
         if provider == "Local Qwen":
@@ -742,10 +765,15 @@ def render_sidebar() -> dict[str, Any]:
         hf_token = st.text_input("Hugging Face token", type="password", help="Optional for model downloads / private models")
         custom_endpoint = st.text_input(
             "Custom endpoint",
-            value="",
-            placeholder="https://api.example.com/v1",
+            value=os.getenv("LEGAL_API_URL", os.getenv("BACKEND_URL", "")),
+            placeholder="http://api:8000/v1/query or https://api.example.com/v1",
         )
-        api_key = st.text_input("Backend API key", type="password", help="Optional: x-api-key for Custom API. Defaults to Streamlit Secrets.API_KEY if set.")
+        api_key = st.text_input(
+            "Backend API key",
+            type="password",
+            value=os.getenv("BACKEND_API_KEY", os.getenv("API_KEY", "")),
+            help="Optional: x-api-key for Custom API. Defaults to Streamlit Secrets.API_KEY if set.",
+        )
 
         st.markdown("### Project overview")
         st.markdown(
@@ -887,10 +915,18 @@ def main() -> None:
                 result_payload = _execute_provider_flow(prompt_value, config, results)
 
                 if not result_payload.get("answer"):
-                    fallback_text = (
-                        "لم أجد إجابة مولدة عبر الـ provider المختار. تم إرجاع أقرب أدلة قانونية من الاسترجاع المحلي فقط. "
-                        f"أقرب دليل: {results[0].get('content', '')[:260] if results else 'لا توجد نتائج.'}"
-                    )
+                    provider_name = config.get("provider", "Custom API")
+                    if results:
+                        fallback_text = (
+                            "لم يتم توليد إجابة عبر الـ provider المختار. تم استرجاع أدلة قانونية محلية فقط، لكنها لا تكفي لتكوين إجابة موثوقة. "
+                            f"أقرب دليل متاح: {results[0].get('content', '')[:260] if results else 'لا توجد نتائج.'}"
+                        )
+                    else:
+                        fallback_text = (
+                            "لم يتم توليد إجابة عبر الـ provider المختار. لا توجد أدلة قانونية متاحة حالياً في الاسترجاع المحلي. "
+                            "تحقق من جودة بيانات القوانين أو قم بتكوين provider صحيح (Custom API / Gemini / OpenAI). "
+                            "السبب الأكثر شيوعاً: مفتاح API مفقود أو الـ backend غير متاح."
+                        )
                     result_payload = {
                         "answer": fallback_text,
                         "citations": [{
@@ -898,11 +934,13 @@ def main() -> None:
                             "article_id": r.get("article_id", "N/A"),
                             "text": r.get("content", ""),
                         } for r in results[:3]],
-                        "warnings": result_payload.get("warnings", ["Retrieval-only fallback was used because the selected provider was unavailable or not configured."]),
+                        "warnings": result_payload.get("warnings", [
+                            "No provider response was received. The app used retrieval-only evidence and did not invent a legal answer."
+                        ]),
                         "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0},
                         "evidence": results,
-                        "provider": config.get("provider", "Local Qwen"),
-                        "model": _provider_model_label(config.get("provider", "Local Qwen"), config),
+                        "provider": provider_name,
+                        "model": _provider_model_label(provider_name, config),
                     }
 
                 answer_text = str(result_payload.get("answer") or "لم أتمكن من توليد إجابة فورية.")
