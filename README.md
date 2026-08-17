@@ -19,8 +19,10 @@ This repository implements a legal retrieval and generation pipeline for Arabic 
 Run locally with:
 
 ```bash
-streamlit run ui/streamlit_app.py --server.port 8501
+streamlit run app.py --server.port 8501
 ```
+
+For Streamlit Community Cloud, set the repository main module to `app.py` (or `streamlit_app.py`), not `api/app.py`. The API backend remains in `api/app.py` for Docker or a standalone service, but the deployed UI must be the Streamlit app entrypoint.
 
 If you use Docker Compose, the Streamlit UI is available at http://localhost:8501 and the API at http://localhost:8000.
 
