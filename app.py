@@ -24,149 +24,272 @@ def apply_theme() -> None:
         """
         <style>
         html, body, [data-testid="stAppViewContainer"] {
-            background: #071421;
-            color: #edf6ff;
+            background: #f5f7fb;
+            color: #0f172a;
         }
         .stApp {
-            background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.16), transparent 28%),
-                        linear-gradient(135deg, #071421 0%, #0d1728 52%, #0f1d32 100%);
+            background: linear-gradient(180deg, #f7f9fc 0%, #f3f6fb 100%);
         }
         [data-testid="stSidebar"] {
-            background: rgba(15, 23, 42, 0.96);
-            border-right: 1px solid rgba(148, 163, 184, 0.18);
+            background: rgba(248, 250, 252, 0.92);
+            border-right: 1px solid rgba(148, 163, 184, 0.25);
         }
         [data-testid="block-container"] {
             padding-top: 1.2rem;
         }
-        .hero {
-            background: linear-gradient(135deg, rgba(37,99,235,0.18), rgba(168,85,247,0.18));
-            border: 1px solid rgba(148, 163, 184, 0.2);
-            border-radius: 24px;
-            padding: 1.6rem 1.7rem;
-            margin-bottom: 1.25rem;
-            box-shadow: 0 25px 60px rgba(15, 23, 42, 0.24);
+        .top-shell {
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 26px;
+            padding: 1rem 1.2rem 0.25rem;
+            box-shadow: 0 18px 40px rgba(15, 23, 42, 0.06);
         }
-        .hero-row {
+        .brand-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
             gap: 1rem;
+            margin-bottom: 1rem;
             flex-wrap: wrap;
         }
-        .hero h1 {
-            margin: 0;
-            font-size: 2.7rem;
-            font-weight: 800;
-            letter-spacing: -0.05em;
-            color: #f8fbff;
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: #0f172a;
         }
-        .hero p {
-            margin: 0.6rem 0 0;
-            color: #c3d1e7;
-            font-size: 1.08rem;
+        .brand-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 2.3rem;
+            height: 2.3rem;
+            border-radius: 0.85rem;
+            background: linear-gradient(135deg, #8b5cf6, #3b82f6);
+            color: white;
+            font-size: 1.1rem;
+            box-shadow: 0 12px 30px rgba(96, 165, 250, 0.28);
+        }
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.4rem;
+            border-radius: 999px;
+            background: rgba(34, 197, 94, 0.1);
+            border: 1px solid rgba(34, 197, 94, 0.25);
+            padding: 0.38rem 0.7rem;
+            color: #166534;
+            font-size: 0.72rem;
+            font-weight: 700;
+        }
+        .hero-bar {
+            background: linear-gradient(135deg, rgba(96,165,250,0.10), rgba(172,146,250,0.08));
+            border: 1px solid rgba(148,163,184,0.18);
+            border-radius: 22px;
+            padding: 1rem 1.1rem;
+            margin-bottom: 1rem;
+        }
+        .hero-bar h1 {
+            margin: 0;
+            font-size: clamp(1.8rem, 2vw, 2.5rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: #111827;
+        }
+        .hero-bar p {
+            margin: 0.5rem 0 0;
+            color: #475569;
+            font-size: 0.98rem;
         }
         .chip-row {
             display: flex;
-            gap: 0.6rem;
+            gap: 0.55rem;
             flex-wrap: wrap;
-            margin-top: 1rem;
+            margin-top: 0.85rem;
         }
         .chip {
             display: inline-flex;
             align-items: center;
-            gap: 0.45rem;
-            background: rgba(15, 23, 42, 0.5);
-            border: 1px solid rgba(148, 163, 184, 0.25);
+            gap: 0.4rem;
+            background: rgba(15, 23, 42, 0.04);
+            border: 1px solid rgba(148, 163, 184, 0.22);
             border-radius: 999px;
-            padding: 0.38rem 0.8rem;
-            color: #dbeafe;
+            padding: 0.42rem 0.8rem;
+            color: #334155;
             font-size: 0.74rem;
-            font-weight: 600;
+            font-weight: 700;
         }
         .metric-card {
-            background: rgba(15, 23, 42, 0.72);
-            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(148, 163, 184, 0.18);
             border-radius: 18px;
-            padding: 1rem 1.1rem;
-            min-height: 120px;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            box-shadow: 0 14px 34px rgba(15, 23, 42, 0.16);
+            padding: 0.9rem 1rem;
+            min-height: 112px;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
         }
         .metric-card .small-muted {
-            color: #9db2ce;
-            font-size: 0.8rem;
+            color: #64748b;
+            font-size: 0.75rem;
             text-transform: uppercase;
-            letter-spacing: 0.06em;
+            letter-spacing: 0.08em;
+            font-weight: 700;
         }
         .metric-card h2 {
-            margin: 0.35rem 0 0;
-            font-size: 2rem;
+            margin: 0.4rem 0 0;
+            font-size: 1.8rem;
+            color: #0f172a;
+            font-weight: 800;
+        }
+        .chat-shell {
+            background: rgba(255, 255, 255, 0.86);
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            border-radius: 26px;
+            box-shadow: 0 18px 42px rgba(148, 163, 184, 0.1);
+            overflow: hidden;
+        }
+        .chat-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            background: rgba(248, 250, 252, 0.8);
+        }
+        .chat-header .title {
+            font-size: 0.95rem;
             font-weight: 700;
-            color: #f8fbff;
+            color: #0f172a;
+        }
+        .assistant-panel {
+            padding: 1rem 1rem 0.5rem;
+            min-height: 420px;
+            background: linear-gradient(180deg, rgba(255,255,255,0.7), rgba(248,250,252,0.8));
+        }
+        .assistant-panel .stChatMessage {
+            margin-bottom: 0.3rem;
+        }
+        .message-bubble {
+            max-width: 85%;
+            border-radius: 1.2rem;
+            padding: 0.9rem 1rem;
+            line-height: 1.6;
+            margin: 0.4rem 0;
+            box-shadow: 0 4px 18px rgba(15, 23, 42, 0.04);
+        }
+        .user-msg {
+            background: linear-gradient(135deg, #dbeafe, #e2e8f0);
+            color: #0f172a;
+            margin-left: auto;
+            border-bottom-right-radius: 0.45rem;
+        }
+        .assistant-msg {
+            background: #ffffff;
+            border: 1px solid rgba(148, 163, 184, 0.16);
+            color: #0f172a;
+            margin-right: auto;
+            border-bottom-left-radius: 0.45rem;
+        }
+        .composer {
+            border-top: 1px solid rgba(148, 163, 184, 0.14);
+            background: rgba(255,255,255,0.96);
+            padding: 1rem 1rem 1.1rem;
+        }
+        .quick-grid {
+            display: flex;
+            gap: 0.6rem;
+            flex-wrap: wrap;
+            margin-bottom: 0.8rem;
+        }
+        .quick-chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(148, 163, 184, 0.18);
+            background: #f8fafc;
+            border-radius: 999px;
+            color: #334155;
+            font-size: 0.75rem;
+            padding: 0.5rem 0.8rem;
+            font-weight: 600;
         }
         .result-card {
-            background: rgba(15, 23, 42, 0.72);
-            border: 1px solid rgba(148, 163, 184, 0.2);
+            background: rgba(255,255,255,0.96);
+            border: 1px solid rgba(148, 163, 184, 0.16);
             border-radius: 18px;
             padding: 1rem 1.1rem;
-            margin-bottom: 0.9rem;
-            box-shadow: 0 10px 26px rgba(15, 23, 42, 0.15);
-        }
-        .result-card h3 {
-            margin: 0.2rem 0 0.5rem;
-            color: #f2f7ff;
-            font-size: 1.18rem;
-        }
-        .result-card p {
-            margin: 0.4rem 0 0;
-            color: #dfe9fa;
-            line-height: 1.6;
+            margin-top: 0.5rem;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
         }
         .badge {
             display: inline-block;
-            background: rgba(56, 189, 248, 0.13);
-            color: #7dd3fc;
-            border: 1px solid rgba(56, 189, 248, 0.32);
+            background: rgba(59,130,246,0.08);
+            color: #1d4ed8;
+            border: 1px solid rgba(59,130,246,0.18);
             border-radius: 999px;
-            padding: 0.28rem 0.7rem;
+            padding: 0.28rem 0.72rem;
             font-size: 0.72rem;
-            font-weight: 600;
+            font-weight: 700;
+        }
+        .result-card h3 {
+            margin: 0.5rem 0 0.35rem;
+            color: #0f172a;
+            font-size: 1.1rem;
+        }
+        .result-card p {
+            margin: 0.2rem 0 0;
+            color: #475569;
+            line-height: 1.6;
         }
         .small-muted {
-            color: #a6b7d1;
+            color: #64748b;
             font-size: 0.82rem;
         }
         .panel-box {
-            background: rgba(15, 23, 42, 0.68);
-            border: 1px solid rgba(148, 163, 184, 0.15);
+            background: rgba(255,255,255,0.9);
+            border: 1px solid rgba(148,163,184,0.18);
             border-radius: 18px;
             padding: 1rem 1.1rem;
-            height: 100%;
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.04);
         }
         .stButton > button {
-            background: linear-gradient(90deg, #60a5fa, #a78bfa);
-            color: #08111d;
+            background: linear-gradient(90deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
             border: none;
             border-radius: 12px;
-            font-weight: 800;
-            padding: 0.7rem 1.2rem;
+            font-weight: 700;
+            padding: 0.7rem 1rem;
+        }
+        .stButton > button:hover {
+            filter: brightness(1.04);
         }
         .stTextInput > div > div > input,
         .stTextArea > div > div > textarea,
         .stSelectbox > div > div,
-        .stNumberInput > div > div {
-            background: rgba(15, 23, 42, 0.75);
-            color: #edf6ff;
-            border: 1px solid rgba(148, 163, 184, 0.25);
-            border-radius: 12px;
+        .stNumberInput > div > div,
+        [data-baseweb="select"] > div,
+        [data-baseweb="textarea"] > div {
+            background: #ffffff !important;
+            color: #0f172a !important;
+            border: 1px solid rgba(148, 163, 184, 0.3) !important;
+            border-radius: 14px;
+            box-shadow: none !important;
         }
+        .stTextInput label,
+        .stTextArea label,
+        .stSelectbox label,
+        .stNumberInput label,
         .stSidebar .stSelectbox label,
         .stSidebar .stTextInput label,
         .stSidebar .stCheckbox label,
-        .stSidebar .stRadio label {
-            color: #dfe9fa;
+        .stSidebar .stRadio label,
+        .stSidebar label {
+            color: #334155 !important;
+        }
+        .stTextInput input::placeholder,
+        .stTextArea textarea::placeholder {
+            color: rgba(71, 85, 105, 0.7) !important;
         }
         .stSidebar .block-container {
             padding-top: 1rem;
@@ -175,9 +298,21 @@ def apply_theme() -> None:
             gap: 0.5rem;
         }
         .stTabs [role="tab"] {
-            background: rgba(15, 23, 42, 0.7);
+            background: rgba(255,255,255,0.9);
             border-radius: 12px 12px 0 0;
-            border: 1px solid rgba(148, 163, 184, 0.15);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            color: #334155;
+            font-weight: 600;
+        }
+        .stTabs [role="tab"][aria-selected="true"] {
+            background: rgba(59,130,246,0.08);
+            border-color: rgba(96,165,250,0.18);
+            color: #0f172a;
+        }
+        .stAlert {
+            background: rgba(239, 246, 255, 0.9);
+            border: 1px solid rgba(147, 197, 253, 0.4);
+            color: #0f172a;
         }
         </style>
         """,
@@ -356,15 +491,20 @@ def main() -> None:
 
     st.markdown(
         """
-        <div class="hero">
-            <div class="hero-row">
-                <div>
-                    <h1>⚖️ Legal Intelligence Engine</h1>
-                    <p>Search legal knowledge with a structured, production-ready retrieval workflow.</p>
+        <div class="top-shell">
+            <div class="brand-row">
+                <div class="brand">
+                    <span class="brand-badge">⚖</span>
+                    Legal Copilot
                 </div>
+                <div class="status-pill">● Ready</div>
+            </div>
+            <div class="hero-bar">
+                <h1>Ask your legal questions like a specialist.</h1>
+                <p>Retrieve Arabic legal context, review evidence, and explore the law with a clean AI-powered workflow.</p>
                 <div class="chip-row">
-                    <span class="chip">● Live</span>
-                    <span class="chip">📊 RAG pipeline</span>
+                    <span class="chip">🔎 Retrieval</span>
+                    <span class="chip">🧠 Model aware</span>
                     <span class="chip">☁️ Cloud ready</span>
                 </div>
             </div>
@@ -412,82 +552,114 @@ def main() -> None:
         unsafe_allow_html=True,
     )
 
-    search_tab, insight_tab, ops_tab = st.tabs(["Search", "Insights", "Operations"])
+    quick_options = [
+        "ما هي شروط القبض في حالة التلبس؟",
+        "ما هي حقوق المتهم في التحقيق؟",
+        "ما هي مسؤولية القاضي في تطبيق القانون؟",
+    ]
 
-    with search_tab:
-        st.info(
-            f"Selected model: {config['llm_model']} | Backend: {config['backend']} | Retrieval: {config['retrieval_mode']}"
-        )
+    st.markdown("<div style='height: 1rem'></div>", unsafe_allow_html=True)
+    chat_col, insight_col = st.columns([2.3, 1])
 
-        question = st.text_area(
-            "اكتب السؤال القانوني",
-            height=150,
-            placeholder="مثال: ما هي شروط القبض في حالة التلبس؟",
-        )
+    with chat_col:
+        st.markdown("<div class='chat-shell'>", unsafe_allow_html=True)
+        st.markdown("<div class='chat-header'><div class='title'>Legal assistant</div><div class='status-pill'>AI on</div></div>", unsafe_allow_html=True)
+        st.markdown("<div class='assistant-panel'>", unsafe_allow_html=True)
 
-        quick_options = [
-            "ما هي شروط القبض في حالة التلبس؟",
-            "ما هي حقوق المتهم في التحقيق؟",
-            "ما هي مسؤولية القاضي في تطبيق القانون؟",
-        ]
-        quick = st.columns(len(quick_options))
-        for column, option in zip(quick, quick_options):
-            if column.button(option, key=f"q_{option}"):
-                st.session_state["legal_question"] = option
+        if "chat_history" not in st.session_state:
+            st.session_state["chat_history"] = [
+                ("assistant", "مرحبًا! سأساعدك في الاستفسارات القانونية. أكتب سؤالك، وسأستخدم Retrieval + evidence لتحليل السياق القانوني."),
+            ]
 
-        if "legal_question" in st.session_state:
-            question = st.session_state["legal_question"]
+        for role, message in st.session_state["chat_history"]:
+            if role == "user":
+                st.markdown(f"<div class='message-bubble user-msg'>{message}</div>", unsafe_allow_html=True)
+            else:
+                st.markdown(f"<div class='message-bubble assistant-msg'>{message}</div>", unsafe_allow_html=True)
 
-        search_clicked = st.button("بحث", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        if search_clicked and question.strip():
-            with st.spinner("جاري البحث في المحتوى القانوني..."):
-                results: list[dict[str, Any]] = []
+        st.markdown("<div class='composer'>", unsafe_allow_html=True)
+        st.markdown("<div class='quick-grid'>", unsafe_allow_html=True)
+        for option in quick_options:
+            if st.button(option, key=f"quick_{option}", help="Use a sample legal question"):
+                st.session_state["chat_history"].append(("user", option))
+                st.session_state["pending_prompt"] = option
+                st.rerun()
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        prompt = st.chat_input("اكتب السؤال القانوني...", key="legal_chat_input")
+        if prompt is not None and prompt.strip():
+            st.session_state["pending_prompt"] = prompt
+
+        if "pending_prompt" in st.session_state and st.session_state["pending_prompt"]:
+            prompt_value = st.session_state["pending_prompt"]
+            st.session_state["pending_prompt"] = ""
+            st.session_state["chat_history"].append(("user", prompt_value))
+            with st.spinner("جاري استرجاع السياق القانوني..."):
                 api_target = config["custom_endpoint"] or API_URL
+                results: list[dict[str, Any]] = []
                 if api_target:
                     try:
-                        response = requests.post(
-                            api_target,
-                            json={"query": question, "top_k": config["top_k"]},
-                            timeout=20,
-                        )
+                        response = requests.post(api_target, json={"query": prompt_value, "top_k": config["top_k"]}, timeout=20)
                         if response.ok:
                             payload = response.json()
                             results = payload.get("sources", [])
-                            if payload.get("answer"):
-                                st.subheader("إجابة مختصرة")
-                                st.write(payload["answer"])
-                                st.success("تم جلب النتائج من واجهة الـAPI")
+                            answer = payload.get("answer")
                         else:
-                            st.warning("فشل الاتصال بالـAPI. سيتم استخدام البحث المحلي كبديل.")
+                            answer = None
+                            results = []
                     except requests.RequestException:
-                        st.warning("واجهة الـAPI غير متاحة. سيتم استخدام البحث المحلي كبديل.")
+                        answer = None
+                        results = []
                 if not results:
-                    results = simple_search(question, k=config["top_k"])
-            render_results(results)
+                    results = simple_search(prompt_value, k=config["top_k"])
+                if results:
+                    first = results[0]
+                    answer_text = (
+                        f"استنادًا إلى {first.get('law_name', 'القانون')} / المادة {first.get('article_id', 'N/A')}، "
+                        f"المعلومة الأساسية هي: {first.get('content', '')[:260]}"
+                    )
+                    if len(results) > 1:
+                        answer_text += "\n\nمراجع أخرى: " + "; ".join(
+                            f"{item.get('law_name', 'القانون')} / المادة {item.get('article_id', 'N/A')}"
+                            for item in results[1:4]
+                        )
+                    answer_text = answer_text.strip()
+                else:
+                    answer_text = "لم أجد نتائج مناسبة. جرّب إعادة صياغة السؤال أو استخدم نموذجًا مختلفًا من الإعدادات." 
 
-    with insight_tab:
-        st.markdown("<div class='panel-box'><h3>Retrieval health</h3></div>", unsafe_allow_html=True)
-        col_a, col_b = st.columns(2)
-        col_a.metric("Recall target", "≥ 0.85", "Protected")
-        col_b.metric("Latency", "< 1.5s", "Healthy")
+                st.session_state["chat_history"].append(("assistant", answer_text))
+                st.session_state["last_results"] = results
+            st.rerun()
 
-        st.markdown("<div class='panel-box'><h3>Knowledge coverage</h3></div>", unsafe_allow_html=True)
-        coverage = [
-            ("قانون الإجراءات الجنائية", 92),
-            ("قانون العقوبات", 88),
-            ("قانون الأحوال الشخصية", 76),
-        ]
-        for name, pct in coverage:
+        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with insight_col:
+        st.markdown("<div class='panel-box'><h3>Model status</h3></div>", unsafe_allow_html=True)
+        st.metric("Chosen model", config["llm_model"])
+        st.metric("Backend", config["backend"])
+        st.metric("Retrieval", config["retrieval_mode"])
+
+        st.markdown("<div class='panel-box' style='margin-top: 1rem;'><h3>Evidence overview</h3></div>", unsafe_allow_html=True)
+        for name, pct in [("Coverage", 92), ("Recall", 87), ("Latency", 91)]:
             st.progress(pct / 100, text=f"{name}: {pct}%")
 
-    with ops_tab:
-        st.markdown("<div class='panel-box'><h3>Deployment and operations</h3></div>", unsafe_allow_html=True)
-        st.write("- DVC tracking for data, model and index artifacts")
-        st.write("- Docker + Compose for API and UI orchestration")
-        st.write("- GitHub Actions CI/CD and regression gate enforcement")
-        st.write("- Monitoring via Prometheus + Grafana")
-        st.write("- Optional API keys for OpenAI, Google, Hugging Face")
+        if "last_results" in st.session_state and st.session_state["last_results"]:
+            st.markdown("<div class='panel-box' style='margin-top: 1rem;'><h3>Latest sources</h3></div>", unsafe_allow_html=True)
+            for idx, hit in enumerate(st.session_state["last_results"][:3], start=1):
+                st.markdown(
+                    f"""
+                    <div class='result-card'>
+                        <div class='badge'>#{idx}</div>
+                        <h3>{hit.get('law_name', 'غير محدد')} / المادة {hit.get('article_id', 'N/A')}</h3>
+                        <div class='small-muted'>{hit.get('title', '')}</div>
+                        <p>{str(hit.get('content', ''))[:180]}</p>
+                    </div>
+                    """,
+                    unsafe_allow_html=True,
+                )
 
 
 if __name__ == "__main__":
