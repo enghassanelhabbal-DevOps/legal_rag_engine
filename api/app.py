@@ -8,6 +8,7 @@ from pydantic import BaseModel
 import os
 import time
 from starlette.responses import JSONResponse
+import httpx
 
 from legal_ai.service import RAGService
 from legal_ai.generation import LLMManager
@@ -100,3 +101,42 @@ def ingest(payload: Dict[str, Any], x_api_key: str | None = Header(None)):
     out = Path("ingested_documents.json")
     out.write_text(__import__("json").dumps(docs, ensure_ascii=False, indent=2), encoding="utf-8")
     return {"status": "ok", "saved_to": str(out)}
+
+
+@app.post("/v1/llm/gemini")
+async def gemini_proxy(payload: Dict[str, Any], x_gemini_key: str | None = Header(None)) -> Dict[str, Any]:
+    """Proxy endpoint for Google Generative Language (Gemini) interactions.
+
+    Authentication precedence (highest -> lowest): X-Gemini-Key header, GEMINI_API_KEY env, api_key in JSON body.
+
+    Request JSON shape:
+      {"model": "gemini-3.7-flash", "input": "Explain how airplanes fly.", "api_key": "..."}
+
+    Returns the raw Gemini JSON response.
+    """
+    # Determine API key
+    api_key = x_gemini_key or os.environ.get("GEMINI_API_KEY") or payload.get("api_key")
+    if not api_key:
+        raise HTTPException(status_code=401, detail="Missing GEMINI API key. Set GEMINI_API_KEY or provide X-Gemini-Key or api_key in body.")
+
+    model = payload.get("model", "gemini-3.7-flash")
+    user_input = payload.get("input") or payload.get("prompt") or payload.get("text")
+    if not user_input:
+        raise HTTPException(status_code=400, detail="Missing 'input' in request body.")
+
+    url = "https://generativelanguage.googleapis.com/v1beta/interactions"
+    body = {"model": model, "input": user_input}
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"}
+
+    try:
+        async with httpx.AsyncClient(timeout=30.0) as client:
+            resp = await client.post(url, json=body, headers=headers)
+            resp.raise_for_status()
+            return resp.json()
+    except httpx.HTTPStatusError as exc:
+        # Forward Gemini HTTP error
+        status = exc.response.status_code if exc.response is not None else 502
+        detail = exc.response.text if exc.response is not None else str(exc)
+        raise HTTPException(status_code=status, detail=detail)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
