@@ -1,0 +1,16 @@
+# Streamlit Cloud deployment requirements.
+#
+# This file intentionally contains ONLY what app.py (the Streamlit UI) needs to import.
+# It does NOT include torch / faiss / transformers / fastapi / uvicorn:
+#   - Local Qwen (torch/faiss/transformers) is disabled by default on cloud
+#     deployments (ALLOW_LOCAL_MODEL_RUNTIME=0) because those native ML
+#     dependencies are unstable/oversized on Streamlit Cloud's build environment.
+#   - fastapi/uvicorn/prometheus-client belong to the separate api/app.py service,
+#     which is deployed independently (Docker/VM), not through this file.
+#
+# If you need the full stack (API + local Qwen) locally or in Docker, install via:
+#   pip install -e ".[dev]"
+# which reads pyproject.toml instead of this file.
+
+streamlit>=1.36.0
+requests>=2.31.0
