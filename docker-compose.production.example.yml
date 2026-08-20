@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./api
+    env_file: .env
+    environment:
+      - ALLOW_LOCAL_MODEL_RUNTIME=1
+      - API_KEY=${API_KEY}
+      - MODEL_HOST=http://model:8080
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+
+  # model service is optional; prefer cloud generation for production unless you control the infra
+  model:
+    image: huggingface/text-generation-inference:latest
+    environment:
+      - MODEL_ID=${TGI_MODEL_ID}
+      - HF_API_TOKEN=${HF_TOKEN}
+    volumes:
+      - ./models:/models
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+# This production example expects you to run an nginx reverse proxy on the host (outside compose)
+# Host nginx should proxy / to http://localhost:8000 and handle TLS with certbot.
+# Secure the API using API_KEY and optionally Basic Auth at nginx layer.

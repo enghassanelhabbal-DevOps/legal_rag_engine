@@ -6,6 +6,7 @@ Usage:
 This script is safe: it inspects files and prints a short summary. It does not execute heavy model loading.
 """
 from __future__ import annotations
+
 import os
 from pathlib import Path
 

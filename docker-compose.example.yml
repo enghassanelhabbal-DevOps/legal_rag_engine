@@ -1,0 +1,44 @@
+version: '3.8'
+
+services:
+  api:
+    build: ./api
+    env_file: .env
+    environment:
+      - ALLOW_LOCAL_MODEL_RUNTIME=1
+      - API_KEY=${API_KEY}
+      - MODEL_HOST=http://model:8080
+    ports:
+      - "8000:8000"
+    depends_on:
+      - model
+    restart: unless-stopped
+
+  model:
+    # Optional model inference server (text-generation-inference or vLLM). Remove if using cloud generation.
+    image: huggingface/text-generation-inference:latest
+    environment:
+      - MODEL_ID=${TGI_MODEL_ID}
+      - HF_API_TOKEN=${HF_TOKEN}
+    volumes:
+      - ./models:/models
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  nginx:
+    image: nginx:stable-alpine
+    volumes:
+      - ./docs/nginx_reverse_proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./certs:/etc/letsencrypt
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - api
+    restart: unless-stopped
+
+# Notes:
+# - This compose file is an example for a VM (Ubuntu 24.04 LTS recommended).
+# - For production, secure the nginx with TLS certificates and protect the API with API_KEY / Basic Auth.
+# - If you prefer generation in cloud (Gemini/OpenAI), you can remove the model service and set API to use cloud providers via env variables.

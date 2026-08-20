@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
 import gc
 import hashlib
 import json
@@ -12,17 +11,19 @@ import platform
 import random
 import re
 import time
-import unicodedata
+from collections.abc import Sequence
+from contextlib import nullcontext
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import Any, Protocol, Sequence
+from typing import Any, Protocol
 
 import faiss
 import numpy as np
 import torch
 from sentence_transformers import CrossEncoder, SentenceTransformer
-from legal_ai.knowledge import EmbeddingCache, KnowledgeVersion
 
+from src.legal_ai.knowledge.cache import EmbeddingCache
+from src.legal_ai.knowledge.versioning import KnowledgeVersion
 
 SEED = 42
 DENSE_MODEL_NAME = "BAAI/bge-m3"
@@ -132,7 +133,7 @@ def clean_text(text: str) -> str:
     return " ".join(str(text).split()).strip()
 
 
-from legal_ai.normalization import normalize_arabic, tokenize
+from src.legal_ai.ingestion.normalization import tokenize
 
 
 def metadata_text(doc: dict) -> str:
@@ -287,7 +288,7 @@ class DenseIndex:
         faiss.write_index(self.index, str(path))
 
     @staticmethod
-    def load(path: Path) -> "DenseIndex":
+    def load(path: Path) -> DenseIndex:
         obj = DenseIndex.__new__(DenseIndex)
         obj.index = faiss.read_index(str(path))
         return obj
@@ -609,19 +610,25 @@ def prepare_pipeline(
     pipeline_cfg: PipelineConfig,
     out_dir: Path,
     load_reranker: bool = True,
+    dense_model_name: str | None = None,
+    reranker_model_name: str | None = None,
 ) -> tuple[HybridRetriever, dict[str, Any]]:
     device = configure_runtime(runtime)
     dtype = choose_dtype(runtime, device)
     LOGGER.info("Inference dtype: %s", dtype)
 
-    encoder = DenseEncoder(DENSE_MODEL_NAME, device, dtype, runtime.max_seq_length)
+    # Allow overriding the default model names (useful for CPU/local runs with smaller models)
+    dense_model_name = dense_model_name or DENSE_MODEL_NAME
+    reranker_model_name = reranker_model_name or RERANKER_MODEL_NAME
+
+    encoder = DenseEncoder(dense_model_name, device, dtype, runtime.max_seq_length)
     bm25 = BM25([tokenize(lexical_text(d)) for d in documents])
     index = build_index(documents, encoder, bm25, runtime.dense_batch_size, out_dir)
 
     reranker = None
-    if load_reranker:
+    if load_reranker and reranker_model_name:
         reranker = Reranker(
-            RERANKER_MODEL_NAME,
+            reranker_model_name,
             device,
             dtype,
             runtime.max_seq_length,
@@ -652,7 +659,7 @@ def prepare_pipeline(
             version_id=f"v{int(time.time())}",
             dataset_hash=dataset_hash,
             document_count=len(documents),
-            embedding_model=DENSE_MODEL_NAME,
+            embedding_model=dense_model_name,
             index_type="faiss-flat-ip",
         )
         kv.save(out_dir / "knowledge_version.json")
@@ -681,6 +688,9 @@ def main() -> None:
     parser.add_argument("--max-seq-length", type=int, default=1024)
     parser.add_argument("--compile-reranker", action="store_true")
     parser.add_argument("--no-reranker", action="store_true")
+    # Optional: override model names (useful to pick smaller models for CPU/local runs)
+    parser.add_argument("--dense-model", default=None, help="Dense encoder model name (HuggingFace)")
+    parser.add_argument("--reranker-model", default=None, help="Reranker CrossEncoder model name (HuggingFace)")
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
@@ -710,12 +720,18 @@ def main() -> None:
         alpha=args.alpha,
     )
 
+    # Determine model names to use (allow overrides via CLI args)
+    dense_model_used = args.dense_model or DENSE_MODEL_NAME
+    reranker_model_used = None if args.no_reranker else (args.reranker_model or RERANKER_MODEL_NAME)
+
     retriever, runtime_info = prepare_pipeline(
         documents,
         runtime,
         pipeline_cfg,
         out_dir,
         load_reranker=not args.no_reranker,
+        dense_model_name=dense_model_used,
+        reranker_model_name=reranker_model_used,
     )
 
     save_json(
@@ -725,8 +741,8 @@ def main() -> None:
             "runtime": asdict(runtime),
             "pipeline": asdict(pipeline_cfg),
             "models": {
-                "dense": DENSE_MODEL_NAME,
-                "reranker": None if args.no_reranker else RERANKER_MODEL_NAME,
+                "dense": dense_model_used,
+                "reranker": reranker_model_used,
             },
             "runtime_info": runtime_info,
         },

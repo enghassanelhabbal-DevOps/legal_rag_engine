@@ -6,14 +6,11 @@ import logging
 import time
 from pathlib import Path
 
-from legal_rag_engine import (
-    PipelineConfig,
-    RuntimeConfig,
-    load_json,
-    set_seed,
-)
-from legal_ai.service import RAGService
-from legal_ai.generation import LLMManager
+from src.legal_ai.core.config import load_json, set_seed
+from src.legal_ai.core.models import PipelineConfig, RuntimeConfig
+from src.legal_ai.evidence import build_grounded_context, select_evidence
+from src.legal_ai.generation.manager import LLMManager
+from src.legal_ai.services.query_service import QueryService
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)s | %(message)s")
 LOGGER = logging.getLogger("legal_rag_app")
@@ -21,7 +18,7 @@ LOGGER = logging.getLogger("legal_rag_app")
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Legal RAG + Qwen3 Transformers, tuned for Quadro M2200")
-    parser.add_argument("--documents", default="legal_documents (1).json")
+    parser.add_argument("--documents", default="legal_documents.json")
     parser.add_argument("--artifact-dir", default="artifacts_m2200")
     parser.add_argument("--query", required=True)
     parser.add_argument("--top-k", type=int, default=5)
@@ -61,19 +58,21 @@ def main() -> None:
     )
 
     LOGGER.info("Preparing retrieval pipeline...")
-    rag = RAGService(documents, runtime, pipeline_cfg, artifact_dir, load_reranker=not args.no_reranker)
+    rag = QueryService(documents, runtime, pipeline_cfg, artifact_dir, load_reranker=not args.no_reranker)
 
     # Important M2200 policy:
     # Keep the LLM as the final GPU-heavy model. Retrieval components can be
     # unloaded immediately before Qwen is loaded to reduce VRAM pressure.
     retrieval = rag.retrieve(args.query, top_k=args.top_k)
 
-    context = rag.build_context(retrieval["results"], max_chars=pipeline_cfg.max_context_chars)
+    evidence = select_evidence(retrieval["results"], max_chars=pipeline_cfg.max_context_chars)
+    context = build_grounded_context(evidence, max_chars=pipeline_cfg.max_context_chars)
 
     LOGGER.info("Unloading retrieval Transformer models before Qwen load...")
     rag.close()
 
     import gc
+
     import torch
     gc.collect()
     if torch.cuda.is_available():

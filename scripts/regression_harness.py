@@ -1,22 +1,23 @@
 """Lightweight regression harness for retrieval baselines.
 
-Saves a small baseline (BM25 + dense synthetic) to artifacts/regression_baseline.json
+Saves a small baseline (BM25 + dense synthetic) to artifacts/regression_baseline.json.
 """
 from __future__ import annotations
+
 import json
+import sys
 from pathlib import Path
+
 import numpy as np
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
 
 from legal_rag_engine import BM25, DenseIndex
 
-
-def run():
+def run() -> None:
     # Synthetic corpus
-    docs = [
-        {"id": "d1", "content": "المادة 1: شروط القبض في حالة التلبس"},
-        {"id": "d2", "content": "المادة 2: حقوق المتهم"},
-        {"id": "d3", "content": "المادة 3: إجراءات القبض"},
-    ]
     corpus_tokens = [["شروط", "القبض", "تلبس"], ["حقوق", "متهم"], ["اجراءات", "القبض"]]
     bm25 = BM25(corpus_tokens)
     q = "ما شروط القبض في حالة التلبس؟"
@@ -34,10 +35,14 @@ def run():
         "dense_indices": indices.tolist(),
         "dense_scores": scores.tolist(),
     }
-    out = Path("artifacts")
+    out = Path("artifacts") / "reports"
     out.mkdir(parents=True, exist_ok=True)
-    (out / "regression_baseline.json").write_text(json.dumps(baseline, ensure_ascii=False, indent=2), encoding="utf-8")
-    print("Saved regression baseline to artifacts/regression_baseline.json")
+    baseline_path = out / "regression_baseline.json"
+    baseline_path.write_text(
+        json.dumps(baseline, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    print("Saved regression baseline to artifacts/reports/regression_baseline.json")
 
 
 if __name__ == '__main__':

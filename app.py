@@ -14,6 +14,7 @@ ROOT = Path(__file__).resolve().parent
 API_URL = os.getenv("LEGAL_API_URL", "")
 LOCAL_RUNTIME_ALLOWED = os.getenv("ALLOW_LOCAL_MODEL_RUNTIME", "0").strip().lower() in {"1", "true", "yes", "on"}
 
+<<<<<<< HEAD
 
 def _get_secret(name: str, default: str = "") -> str:
     """Resolve a secret with a single consistent priority order everywhere in the app:
@@ -35,6 +36,8 @@ def _get_secret(name: str, default: str = "") -> str:
         pass
     return os.getenv(name, default)
 
+=======
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
 st.set_page_config(
     page_title="Legal Intelligence Engine",
     page_icon="⚖️",
@@ -388,6 +391,7 @@ def build_bm25_index() -> tuple[list[str], list[dict[str, Any]]]:
     records: list[dict[str, Any]] = []
     for doc in docs:
         metadata = doc.get("metadata") or {}
+<<<<<<< HEAD
         # Support both schemas:
         #  - the real LegalDocument contract (raw_text / normalized_text / embedding_text)
         #  - the simplified demo schema (content / metadata.title)
@@ -402,6 +406,10 @@ def build_bm25_index() -> tuple[list[str], list[dict[str, Any]]]:
             or doc.get("embedding_text")
             or ""
         )
+=======
+        title = str(metadata.get("title", ""))
+        text = str(doc.get("content", ""))
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
         combined = f"{title} {text}".strip()
         corpus.append(combined)
         records.append(
@@ -536,11 +544,19 @@ def _build_context_summary(results: list[dict[str, Any]]) -> str:
     if not results:
         return "لا توجد أدلة قانونية متاحة."
     snippets: list[str] = []
+<<<<<<< HEAD
     for item in results[:6]:
         law_name = item.get("law_name") or "القانون"
         article_id = item.get("article_id") or "N/A"
         content = str(item.get("content") or item.get("text") or "")
         snippets.append(f"{law_name} / المادة {article_id}: {content[:800]}")
+=======
+    for item in results[:4]:
+        law_name = item.get("law_name") or "القانون"
+        article_id = item.get("article_id") or "N/A"
+        content = str(item.get("content") or item.get("text") or "")
+        snippets.append(f"{law_name} / المادة {article_id}: {content[:250]}")
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
     return "\n\n".join(snippets)
 
 
@@ -557,7 +573,11 @@ def _extract_json_answer(raw: str) -> dict[str, Any]:
 
 
 def _call_openai_provider(question: str, context: str, config: dict[str, Any]) -> dict[str, Any]:
+<<<<<<< HEAD
     api_key = (config.get("openai_key") or _get_secret("OPENAI_API_KEY")).strip()
+=======
+    api_key = (config.get("openai_key") or os.getenv("OPENAI_API_KEY") or "").strip()
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
     if not api_key:
         return {"answer": None, "warnings": ["OpenAI API key is missing."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
 
@@ -588,11 +608,19 @@ def _call_openai_provider(question: str, context: str, config: dict[str, Any]) -
 
 
 def _call_gemini_provider(question: str, context: str, config: dict[str, Any]) -> dict[str, Any]:
+<<<<<<< HEAD
     api_key = (config.get("google_key") or _get_secret("GOOGLE_API_KEY")).strip()
     if not api_key:
         return {"answer": None, "warnings": ["Google API key is missing."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
 
     model_name = config.get("gemini_model") or _get_secret("GEMINI_MODEL", "gemini-2.5-flash")
+=======
+    api_key = (config.get("google_key") or os.getenv("GOOGLE_API_KEY") or "").strip()
+    if not api_key:
+        return {"answer": None, "warnings": ["Google API key is missing."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+    model_name = config.get("gemini_model") or os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
     url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
     payload = {
         "contents": [{
@@ -614,11 +642,24 @@ def _call_gemini_provider(question: str, context: str, config: dict[str, Any]) -
 
 
 def _call_custom_provider(question: str, context: str, config: dict[str, Any]) -> dict[str, Any]:
+<<<<<<< HEAD
     endpoint = (config.get("custom_endpoint") or _get_secret("LEGAL_API_URL")).strip()
     if not endpoint:
         return {"answer": None, "warnings": ["Custom endpoint is not configured."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
 
     api_key = (config.get("api_key") or _get_secret("API_KEY")).strip()
+=======
+    endpoint = (config.get("custom_endpoint") or os.getenv("LEGAL_API_URL") or "").strip()
+    if not endpoint:
+        return {"answer": None, "warnings": ["Custom endpoint is not configured."], "citations": [], "timing": {"retrieval_ms": 0, "generation_ms": 0, "total_ms": 0}, "evidence": []}
+
+    # Prefer API key from config (sidebar), then Streamlit secrets, then env
+    try:
+        secrets_api_key = st.secrets.get("API_KEY") if hasattr(st, "secrets") else None
+    except Exception:
+        secrets_api_key = None
+    api_key = (config.get("api_key") or secrets_api_key or os.getenv("API_KEY") or "").strip()
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
     headers = {"Content-Type": "application/json"}
     if api_key:
         headers["x-api-key"] = api_key
@@ -691,7 +732,11 @@ def _probe_provider(config: dict[str, Any]) -> tuple[bool, str]:
             return False, "Local RAG unavailable"
 
         if provider == "OpenAI":
+<<<<<<< HEAD
             api_key = (config.get("openai_key") or _get_secret("OPENAI_API_KEY")).strip()
+=======
+            api_key = (config.get("openai_key") or os.getenv("OPENAI_API_KEY") or "").strip()
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
             if not api_key:
                 return False, "OpenAI API key is missing"
             # minimal probe: request model list (requires auth) — many keys may not allow list; short timeout
@@ -702,7 +747,11 @@ def _probe_provider(config: dict[str, Any]) -> tuple[bool, str]:
                 return False, f"OpenAI probe error: {e}"
 
         if provider == "Google Gemini":
+<<<<<<< HEAD
             api_key = (config.get("google_key") or _get_secret("GOOGLE_API_KEY")).strip()
+=======
+            api_key = (config.get("google_key") or os.getenv("GOOGLE_API_KEY") or "").strip()
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
             if not api_key:
                 return False, "Google API key is missing"
             url = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}"
@@ -717,7 +766,11 @@ def _probe_provider(config: dict[str, Any]) -> tuple[bool, str]:
                 return False, f"Google probe error: {e}"
 
         if provider == "Custom API":
+<<<<<<< HEAD
             endpoint = (config.get("custom_endpoint") or _get_secret("LEGAL_API_URL")).strip()
+=======
+            endpoint = (config.get("custom_endpoint") or os.getenv("LEGAL_API_URL") or "").strip()
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
             if not endpoint:
                 return False, "Custom endpoint is not configured"
             try:
@@ -765,6 +818,7 @@ def render_sidebar() -> dict[str, Any]:
         top_k = st.slider("Top results", min_value=3, max_value=10, value=5)
 
         st.markdown("### API keys")
+<<<<<<< HEAD
         st.caption("محجوزة تلقائيًا من Streamlit Secrets لو متوفرة — تقدر تستبدلها هنا وقتيًا")
         openai_key = st.text_input(
             "OpenAI API key", value=_get_secret("OPENAI_API_KEY"), type="password",
@@ -787,6 +841,17 @@ def render_sidebar() -> dict[str, Any]:
             "Backend API key", value=_get_secret("API_KEY"), type="password",
             help="Optional: x-api-key for Custom API. Defaults to Streamlit Secrets.API_KEY if set.",
         )
+=======
+        openai_key = st.text_input("OpenAI API key", type="password", help="Optional for cloud LLM access")
+        google_key = st.text_input("Google API key", type="password", help="Optional for Gemini access")
+        hf_token = st.text_input("Hugging Face token", type="password", help="Optional for model downloads / private models")
+        custom_endpoint = st.text_input(
+            "Custom endpoint",
+            value="",
+            placeholder="https://api.example.com/v1",
+        )
+        api_key = st.text_input("Backend API key", type="password", help="Optional: x-api-key for Custom API. Defaults to Streamlit Secrets.API_KEY if set.")
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
 
         st.markdown("### Project overview")
         st.markdown(
@@ -804,8 +869,13 @@ def render_sidebar() -> dict[str, Any]:
             "hf_token": hf_token,
             "custom_endpoint": custom_endpoint,
             "api_key": api_key,
+<<<<<<< HEAD
             "openai_model": llm_model if provider == "OpenAI" else _get_secret("OPENAI_MODEL", "gpt-4o-mini"),
             "gemini_model": llm_model if provider == "Google Gemini" else _get_secret("GEMINI_MODEL", "gemini-2.5-flash"),
+=======
+            "openai_model": llm_model if provider == "OpenAI" else (os.getenv("OPENAI_MODEL", "gpt-4o-mini")),
+            "gemini_model": llm_model if provider == "Google Gemini" else (os.getenv("GEMINI_MODEL", "gemini-2.5-flash")),
+>>>>>>> origin/agents/devops-mlops-streamlit-integration
             "custom_model": llm_model if provider == "Custom API" else "custom-model",
         }
 
